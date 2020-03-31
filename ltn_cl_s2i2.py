@@ -15,13 +15,11 @@ with open('scenes_short.json') as f:
 with open('questions_short.json') as f:
     questions_json = json.load(f)
     f.close()
-
 #print('first scene:\n',scenes_json[0])
 #print('##########\n##########\nfirst question:\n',questions_json[0])
 
-
 #######################
-### Load datapoints ###
+### Parse JSON data ###
 #######################
 
 #possible features of an object (excluding 3 pixel-coords)
@@ -48,7 +46,7 @@ for o in scenes_json[0]['objects']:
 right_pairs = [] #list of pairs [o1,o2] where o2 is to the right of o1 
 for i in range(len(obj_set)):
     for j in range(len(scenes_json[0]['relationships']['right'][i])):
-        r_pair = [i, scenes_json[0]['relationships']['right'][i][j]]
+        r_pair = [i, scenes_json[0]['relationships']['right'][i][j]]    
         right_pairs.append(r_pair)
 #print('Right pairs: ', right_pairs)
 
@@ -92,20 +90,45 @@ for i in range(len(obj_set)):
     ltnw.constant('object'+str(i),obj_set[i])
 ltnw.variable('?obj',obj_set)
 ltnw.variable('?obj_2',obj_set)
-#print(ltnw.CONSTANTS)
 
-# Object Features (TODO)
+# Object Features
 for feat in obj_feat:
     ltnw.predicate(feat.capitalize(), num_of_features)
 
-# Implicit axioms about object features 
-# (TODO)
+# Axioms for object features in an image
+for i in range(len(obj_set)):
+    for j in range(len(obj_feat)):
+        if obj_set[i][j] == 1:
+            ltnw.axiom(obj_feat[j].capitalize() + '(object' + str(i) + ')')
+            #print(obj_feat[j].capitalize() + '(object' + str(i) + ')')
+
+# Implicit axioms about object features
+## objects can only be one color
+for c in obj_colors:
+    for not_c in obj_colors:
+        if not_c != c:
+            ltnw.axiom('forall ?obj: ' + c.capitalize() + '(?obj) -> ~' + not_c.capitalize() + '(?obj)')
+## objects can only be one size
+for s in obj_sizes:
+    for not_s in obj_sizes:
+        if not_s != s:
+            ltnw.axiom('forall ?obj: ' + s.capitalize() + '(?obj) -> ~' + not_s.capitalize() + '(?obj)')
+## objects can only be one shape
+for sh in obj_shapes:
+    for not_sh in obj_shapes:
+        if not_sh != sh:
+            ltnw.axiom('forall ?obj: ' + sh.capitalize() + '(?obj) -> ~' + not_sh.capitalize() + '(?obj)')
+## objects can only be one material
+for m in obj_materials:
+    for not_m in obj_materials:
+        if not_m != m:
+            ltnw.axiom('forall ?obj: ' + m.capitalize() + '(?obj) -> ~' + not_m.capitalize() + '(?obj)')
 
 # Spacial Relations
-ltnw.predicate('Right',2*num_of_features)
-ltnw.predicate('Behind',2*num_of_features)
-ltnw.predicate('Front',2*num_of_features)
-ltnw.predicate('Left',2*num_of_features)
+ltnw.predicate('Right',2*num_of_features) # Right(?o1,?o2) : o2 is on the right of o1
+ltnw.predicate('Behind',2*num_of_features) # Behind(?o1,?o2) : o2 is behind o1
+ltnw.predicate('Front',2*num_of_features) # Front(?o1,?o2) : o2 is in front of o1
+ltnw.predicate('Left',2*num_of_features) # Left(?o1,?o2) : o2 is on the left of o1
 
 # Axioms for image's spacial relationships
 for p in right_pairs:
@@ -118,17 +141,21 @@ for p in left_pairs:
     ltnw.axiom('Left(object'+str(p[0])+',object'+str(p[1])+')') 
 
 # Implicit Axioms about spacial relations
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~ Left(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~ Right(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~ Right(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~ Left(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~ Behind(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~ Front(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~ Front(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~ Behind(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
+ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
 #####################
 ### Train the LTN ###
@@ -141,9 +168,13 @@ sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.1, early_stop_le
 ### Test the LTN ###
 ####################
 
-print('Is object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
-print('Is object4 (small gray cube) not to the left of object3 (large purple sphere)? ', ltnw.ask('~Left(object3,object4)'))
+# ask queries about objects in image_val_00000.png
+print('\nIs object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
+print('Is object4 (small gray cube) not to the left of object2 (small green cylinder)? ', ltnw.ask('~Left(object3,object2)'))
 print('Is object2 (small green cylinder) to the left of object1 (large gray cube)? ', ltnw.ask('Left(object1,object2)'))
+print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
+print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
+print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
 
 
 

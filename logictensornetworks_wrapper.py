@@ -369,6 +369,7 @@ def train(max_epochs=10000,
         tmp = true_sat_level
         true_sat_level = KNOWLEDGEBASE
         sat_level_diff = true_sat_level - tmp
+        if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
         if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1 
         else: low_diff_cnt = 0
         if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon:
