@@ -43,7 +43,7 @@ for o in scenes_json[0]['objects']:
 #print('All objects: ', obj_set)
 
 # right relationship for each object in an image (image 0)
-right_pairs = [] #list of pairs [o1,o2] where o2 is to the right of o1 
+right_pairs = [] #list of index pairs [o1,o2] where o2 is to the right of o1 
 for i in range(len(obj_set)):
     for j in range(len(scenes_json[0]['relationships']['right'][i])):
         r_pair = [i, scenes_json[0]['relationships']['right'][i][j]]    
@@ -51,7 +51,7 @@ for i in range(len(obj_set)):
 #print('Right pairs: ', right_pairs)
 
 # behind relationship for each object in an image (image 0)
-behind_pairs = [] #list of pairs [o1,o2] where o2 is behind of o1 
+behind_pairs = [] #list of index pairs [o1,o2] where o2 is behind of o1 
 for i in range(len(obj_set)):
     for j in range(len(scenes_json[0]['relationships']['behind'][i])):
         b_pair = [i, scenes_json[0]['relationships']['behind'][i][j]]
@@ -59,7 +59,7 @@ for i in range(len(obj_set)):
 #print('Behind pairs: ', behind_pairs)
 
 # front relationship for each object in an image (image 0)
-front_pairs = [] #list of pairs [o1,o2] where o2 is to the in front of o1 
+front_pairs = [] #list of index pairs [o1,o2] where o2 is to the in front of o1 
 for i in range(len(obj_set)):
     for j in range(len(scenes_json[0]['relationships']['front'][i])):
         f_pair = [i, scenes_json[0]['relationships']['front'][i][j]]
@@ -67,7 +67,7 @@ for i in range(len(obj_set)):
 #print('Front pairs:', front_pairs)
 
 # left relationship for each object in an image (image 0)
-left_pairs = [] #list of pairs [o1,o2] where o2 is to the left of o1 
+left_pairs = [] #list of index pairs [o1,o2] where o2 is to the left of o1 
 for i in range(len(obj_set)):
     for j in range(len(scenes_json[0]['relationships']['left'][i])):
         l_pair = [i, scenes_json[0]['relationships']['left'][i][j]]
@@ -165,6 +165,11 @@ ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
 sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.1, early_stop_level=0.00001)
 
 ####################
+### Save the LTN ###
+####################
+## TODO : save the LTN parameters into a file tht can be loaded and tested without training again
+
+####################
 ### Test the LTN ###
 ####################
 
@@ -175,6 +180,7 @@ print('Is object2 (small green cylinder) to the left of object1 (large gray cube
 print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
 print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
 print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
+#print('Is there an object to the right of object1 (large gray cube)?', ltnw.ask('exists ?obj: Right(object1,?obj)'))
 
 
 
