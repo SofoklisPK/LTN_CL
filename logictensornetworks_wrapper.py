@@ -16,6 +16,7 @@ import logging
 import tqdm
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#print("device = ", device)
 
 CONFIGURATION = {"max_nr_iterations": 1000, "error_on_redeclare": False}
 
@@ -366,18 +367,18 @@ def train(max_epochs=10000,
             axiom(a, True)
         KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
         to_be_optimized = 1-KNOWLEDGEBASE
-        tmp = true_sat_level
+        tmp = true_sat_level #
         true_sat_level = KNOWLEDGEBASE
-        sat_level_diff = true_sat_level - tmp
+        sat_level_diff = true_sat_level - tmp #
         if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
-        if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1 
-        else: low_diff_cnt = 0
-        if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon:
+        if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1  #
+        else: low_diff_cnt = 0 #
+        if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon: #
             logging.getLogger(__name__).info("TRAINING finished after %s epochs with sat level %s" % (i, true_sat_level))
             return to_be_optimized
-        elif early_stop_level is not None and low_diff_cnt >= 10:
-            logging.getLogger(__name__).info("TRAINING finished EARLY after %s epochs with sat level %s" % (i, true_sat_level))
-            return to_be_optimized
+        elif early_stop_level is not None and low_diff_cnt >= 10: #
+            logging.getLogger(__name__).info("TRAINING finished EARLY after %s epochs with sat level %s" % (i, true_sat_level)) #
+            return to_be_optimized #
         to_be_optimized.backward()
         OPTIMIZER.step()
         pbar.set_description("Current Satisfiability %f" % (true_sat_level))
@@ -398,3 +399,46 @@ def ask(term_or_formula):
         raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
     else:
         return _t.detach().numpy()
+
+
+def save_ltn(filename='ltn_library.pt'):
+    global PREDICATES, FUNCTIONS, OPTIMIZER
+
+    pred_dicts = {}
+    func_dicts = {}
+
+    for key in PREDICATES.keys():
+        pred_dicts[key] = PREDICATES[key].state_dict()
+        print(key)
+    for key in FUNCTIONS.keys():
+        pred_dicts[key] = FUNCTIONS[key].state_dict()
+
+    optim_dict = OPTIMIZER.state_dict()
+
+    ltn_library = {
+        'predicate_state_dicts': pred_dicts,
+        'function_state_dicts': func_dicts,
+        'optimizer_state_dict': optim_dict
+    }
+
+    torch.save(ltn_library, filename)
+
+def load_ltn(filename='ltn_library.pt'):
+    global PREDICATES, FUNCTIONS, OPTIMIZER
+
+    ltn_library = torch.load(filename)
+
+    pred_dicts = ltn_library['predicate_state_dicts']
+    func_dicts = ltn_library['function_state_dicts']
+    optim_dict = ltn_library['optimizer_state_dict']
+
+    # TODO initialize predicates/functions/optimizer first?
+    for key in pred_dicts.keys():
+        predicate(key)
+        PREDICATES[key].load_state_dict(pred_dicts[key])
+        print(key)
+    for key in func_dicts.keys():
+        FUNCTIONS[key].load_state_dict(func_dicts[key])
+    OPTIMIZER.load_state_dict(optim_dict)
+    
+    
