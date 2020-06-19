@@ -14,6 +14,7 @@ import torch
 import logictensornetworks as ltn
 import logging
 import tqdm
+import csv
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #print("device = ", device)
@@ -355,10 +356,14 @@ def initialize_knowledgebase(optimizer=None,
 
 
 def train(max_epochs=10000,
-          sat_level_epsilon=.0001, early_stop_level = None):
+          sat_level_epsilon=.0001, early_stop_level = None, track_values = False):
     global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS
     pbar = tqdm.tqdm(total=max_epochs)
     low_diff_cnt, true_sat_level = 0.0, 1.0
+    if track_values:    
+        f = open('axioms_values.csv', 'w')
+        dictw = csv.DictWriter(f, AXIOMS.keys())
+        dictw.writeheader()
     if KNOWLEDGEBASE is None:
         raise Exception("KNOWLEDGEBASE not initialized. Please run initialize_knowledgebase first.")
     for i in range(max_epochs):
@@ -366,14 +371,17 @@ def train(max_epochs=10000,
         for a in AXIOMS.keys():
             axiom(a, True)
         KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
-        to_be_optimized = 1-KNOWLEDGEBASE
+        if track_values: 
+            dictw.writerow({key:value.detach().numpy()[0] for (key, value) in AXIOMS.items()})
+        #to_be_optimized = 1-KNOWLEDGEBASE
+        to_be_optimized = torch.mean(torch.cat([1-x for x in AXIOMS.values()],dim=0))
         tmp = true_sat_level #
         true_sat_level = KNOWLEDGEBASE
         sat_level_diff = true_sat_level - tmp #
         if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
         if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1  #
         else: low_diff_cnt = 0 #
-        if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon: #
+        if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon: 
             logging.getLogger(__name__).info("TRAINING finished after %s epochs with sat level %s" % (i, true_sat_level))
             return to_be_optimized
         elif early_stop_level is not None and low_diff_cnt >= 10: #
@@ -409,7 +417,6 @@ def save_ltn(filename='ltn_library.pt'):
 
     for key in PREDICATES.keys():
         pred_dicts[key] = PREDICATES[key].state_dict()
-        print(key)
     for key in FUNCTIONS.keys():
         pred_dicts[key] = FUNCTIONS[key].state_dict()
 
@@ -436,9 +443,8 @@ def load_ltn(filename='ltn_library.pt'):
     for key in pred_dicts.keys():
         predicate(key)
         PREDICATES[key].load_state_dict(pred_dicts[key])
-        print(key)
     for key in func_dicts.keys():
         FUNCTIONS[key].load_state_dict(func_dicts[key])
-    OPTIMIZER.load_state_dict(optim_dict)
+    if OPTIMIZER is not None : OPTIMIZER.load_state_dict(optim_dict)
     
     

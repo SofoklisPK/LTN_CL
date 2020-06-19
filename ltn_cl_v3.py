@@ -7,7 +7,7 @@ import random
 
 num_scenes = 5
 num_of_layers = 4
-max_epochs = 1500
+max_epochs = 50000
 
 ##################################
 ### Import data from csv files ###
@@ -94,7 +94,13 @@ for idx, scene in enumerate(scenes_subset):
             left_pairs.append(l_pair)
     #print('Left pairs:', left_pairs)
 
- 
+
+### Create Subsets of object attributes
+obj_attr, not_obj_attr = {}, {}
+for i, feat in enumerate(obj_feat):
+    obj_attr[feat] = [x for x in full_obj_set if x[i]==1]
+    not_obj_attr[feat] = [x for x in full_obj_set if x[i]==0]
+    not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
 
 ##################
 ### Set Up LTN ###
@@ -115,6 +121,13 @@ for i in range(len(full_obj_set)):
     ltnw.constant('object'+str(i),full_obj_set[i])
 ltnw.variable('?obj',full_obj_set)
 ltnw.variable('?obj_2',full_obj_set)
+for i, feat in enumerate(obj_feat):
+    ltnw.variable('?is_'+feat, obj_attr[feat])
+    ltnw.variable('?isnot_'+feat, not_obj_attr[feat])
+ltnw.variable('?right_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in right_pairs])
+ltnw.variable('?left_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in left_pairs])
+ltnw.variable('?front_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in front_pairs])
+ltnw.variable('?behind_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in behind_pairs])
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -124,36 +137,40 @@ print('******* Predicate/Axioms for Object Features ******')
 for feat in obj_feat:
     ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, layers=num_of_layers)
 
+for i, feat in enumerate(obj_feat):
+    ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+    ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')
+
 # Axioms for object features in an image
-for i in range(len(full_obj_set)):
-    for j in range(len(obj_feat)):
-        if full_obj_set[i][j] == 1:
-            ltnw.axiom(obj_feat[j].capitalize() + '(object' + str(i) + ')')
-            #print(obj_feat[j].capitalize() + '(object' + str(i) + ')')
-        else:
-            ltnw.axiom('~'+obj_feat[j].capitalize() + '(object' + str(i) + ')')
+# for i in range(len(full_obj_set)):
+#     for j in range(len(obj_feat)):
+#         if full_obj_set[i][j] == 1:
+#             ltnw.axiom(obj_feat[j].capitalize() + '(object' + str(i) + ')')
+#             #print(obj_feat[j].capitalize() + '(object' + str(i) + ')')
+#         else:
+#             ltnw.axiom('~'+obj_feat[j].capitalize() + '(object' + str(i) + ')')
 
 # Implicit axioms about object features
 ## objects can only be one color
-for c in obj_colors:
-    for not_c in obj_colors:
-        if not_c != c:
-            ltnw.axiom('forall ?obj: ' + c.capitalize() + '(?obj) -> ~' + not_c.capitalize() + '(?obj)')
-## objects can only be one size
-for s in obj_sizes:
-    for not_s in obj_sizes:
-        if not_s != s:
-            ltnw.axiom('forall ?obj: ' + s.capitalize() + '(?obj) -> ~' + not_s.capitalize() + '(?obj)')
-## objects can only be one shape
-for sh in obj_shapes:
-    for not_sh in obj_shapes:
-        if not_sh != sh:
-            ltnw.axiom('forall ?obj: ' + sh.capitalize() + '(?obj) -> ~' + not_sh.capitalize() + '(?obj)')
-## objects can only be one material
-for m in obj_materials:
-    for not_m in obj_materials:
-        if not_m != m:
-            ltnw.axiom('forall ?obj: ' + m.capitalize() + '(?obj) -> ~' + not_m.capitalize() + '(?obj)')
+# for c in obj_colors:
+#     for not_c in obj_colors:
+#         if not_c != c:
+#             ltnw.axiom('forall ?obj: ' + c.capitalize() + '(?obj) -> ~' + not_c.capitalize() + '(?obj)')
+# ## objects can only be one size
+# for s in obj_sizes:
+#     for not_s in obj_sizes:
+#         if not_s != s:
+#             ltnw.axiom('forall ?obj: ' + s.capitalize() + '(?obj) -> ~' + not_s.capitalize() + '(?obj)')
+# ## objects can only be one shape
+# for sh in obj_shapes:
+#     for not_sh in obj_shapes:
+#         if not_sh != sh:
+#             ltnw.axiom('forall ?obj: ' + sh.capitalize() + '(?obj) -> ~' + not_sh.capitalize() + '(?obj)')
+# ## objects can only be one material
+# for m in obj_materials:
+#     for not_m in obj_materials:
+#         if not_m != m:
+#             ltnw.axiom('forall ?obj: ' + m.capitalize() + '(?obj) -> ~' + not_m.capitalize() + '(?obj)')
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -165,36 +182,49 @@ ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, lay
 ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Front(?o1,?o2) : o2 is in front of o1
 ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Left(?o1,?o2) : o2 is on the left of o1
 
-# Axioms for image's spacial relationships
 for p in right_pairs:
-    ltnw.axiom('Right(object'+str(p[0])+',object'+str(p[1])+')')
-    ltnw.axiom('~Left(object'+str(p[0])+',object'+str(p[1])+')')
+    ltnw.axiom('forall ?right_pair : Right(?right_pair)')
+    ltnw.axiom('forall ?left_pair : ~Right(?left_pair)')
 for p in behind_pairs:
-    ltnw.axiom('Behind(object'+str(p[0])+',object'+str(p[1])+')') 
-    ltnw.axiom('~Front(object'+str(p[0])+',object'+str(p[1])+')') 
+    ltnw.axiom('forall ?behind_pair : Behind(?behind_pair)')
+    ltnw.axiom('forall ?front_pair : ~Behind(?front_pair)')
 for p in front_pairs:
-    ltnw.axiom('Front(object'+str(p[0])+',object'+str(p[1])+')')
-    ltnw.axiom('~Behind(object'+str(p[0])+',object'+str(p[1])+')') 
+    ltnw.axiom('forall ?front_pair : Front(?front_pair)')
+    ltnw.axiom('forall ?behind_pair : ~Front(?behind_pair)')
 for p in left_pairs:
-    ltnw.axiom('Left(object'+str(p[0])+',object'+str(p[1])+')')
-    ltnw.axiom('~Right(object'+str(p[0])+',object'+str(p[1])+')') 
+    ltnw.axiom('forall ?left_pair : Left(?left_pair)')
+    ltnw.axiom('forall ?right_pair : ~Left(?right_pair)') 
+
+# Axioms for image's spacial relationships
+# for p in right_pairs:
+#     ltnw.axiom('Right(object'+str(p[0])+',object'+str(p[1])+')')
+#     ltnw.axiom('~Left(object'+str(p[0])+',object'+str(p[1])+')')
+# for p in behind_pairs:
+#     ltnw.axiom('Behind(object'+str(p[0])+',object'+str(p[1])+')') 
+#     ltnw.axiom('~Front(object'+str(p[0])+',object'+str(p[1])+')') 
+# for p in front_pairs:
+#     ltnw.axiom('Front(object'+str(p[0])+',object'+str(p[1])+')')
+#     ltnw.axiom('~Behind(object'+str(p[0])+',object'+str(p[1])+')') 
+# for p in left_pairs:
+#     ltnw.axiom('Left(object'+str(p[0])+',object'+str(p[1])+')')
+#     ltnw.axiom('~Right(object'+str(p[0])+',object'+str(p[1])+')') 
 
 # Implicit Axioms about spacial relations
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
 #####################
 ### Train the LTN ###
