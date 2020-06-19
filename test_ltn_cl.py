@@ -84,6 +84,12 @@ for scene in scenes_json:
 print('Number of Scenes: ', len(scenes_json))
 print('Number of Objects: ', len(full_obj_set))
 
+def build_object_descr(obj):
+    descr = ''
+    for i, feat in enumerate(obj_feat):
+        if obj[i] == 1: descr += feat + ' '
+    return descr
+
 ##################
 ### Set Up LTN ###
 ################## 
@@ -91,9 +97,9 @@ print('Number of Objects: ', len(full_obj_set))
 #ltnw.set_universal_aggreg("hmean")
 #ltnw.set_existential_aggregator("max")
 #ltnw.set_tnorm("luk")
-ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
+#ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
 num_of_layers = 2
-max_epochs = 2
+
 
 # Object Constants/Variables
 for i in range(len(full_obj_set)):
@@ -172,19 +178,21 @@ ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, layer
 ### Load the LTN ###
 ####################
 
-ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
-ltnw.load_ltn()
+#ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
+ltnw.load_ltn('ltn_library_with_implicit.pt')
 
 
 # ask queries about objects in image_val_00000.png
-print("Objects")
-print('gray',' blue',' brown',' yellow',' red',' green',' purple',' cyan',' small',' large',' cube',' sphere',' cylinder',' rubber',' metal')
+print("Objects::")
+#print('gray',' blue',' brown',' yellow',' red',' green',' purple',' cyan',' small',' large',' cube',' sphere',' cylinder',' rubber',' metal')
 for i , o in enumerate(full_obj_set):
-    print('Object ',i,' : ', o)
+    print('Object ',i,' : ', build_object_descr(full_obj_set[i]), full_obj_set[i][-3:])
 print('\nIs object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
 print('Is object3 (large purple sphere) not to the left of object2 (small green cylinder)? ', ltnw.ask('~Left(object2,object3)'))
 print('Is object2 (small green cylinder) to the left of object1 (large gray cube)? ', ltnw.ask('Left(object1,object2)'))
 print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
 print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
-print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
+print('Is object35 small? ', ltnw.ask('Small(object35)'))
+print('Is object35 a sphere? ', ltnw.ask('Cube(object35)'))
+print('Is object2 (small green cylinder) to the right of object1 (large gray cube)? ', ltnw.ask('Right(object1,object2)'))
 #print('Is there an object to the right of object1 (large gray cube)?', ltnw.ask('exists ?obj: Right(object1,?obj)'))
