@@ -7,7 +7,7 @@ import random
 
 num_scenes = 5
 num_of_layers = 4
-max_epochs = 1500
+max_epochs = 500
 
 ##################################
 ### Import data from csv files ###
@@ -62,8 +62,9 @@ for idx, scene in enumerate(scenes_subset):
         size_vec = [(o['size'] == s)*1 for s in obj_sizes]
         shape_vec = [(o['shape'] == sh)*1 for sh in obj_shapes]
         material_vec =[(o['material'] == m)*1 for m in obj_materials]
-        scene_obj_set.append(color_vec + size_vec + shape_vec + material_vec + o['pixel_coords'])
-        full_obj_set.append(color_vec + size_vec + shape_vec + material_vec + o['pixel_coords'])
+        pixel_vec = [o['pixel_coords'][0]/480, o['pixel_coords'][1]/320, o['pixel_coords'][0]/32]
+        scene_obj_set.append(color_vec + size_vec + shape_vec + material_vec + pixel_vec)
+        full_obj_set.append(color_vec + size_vec + shape_vec + material_vec + pixel_vec)
     #print('All objects: ', obj_set)
 
     # right relationship for each object in an image (image 0)
