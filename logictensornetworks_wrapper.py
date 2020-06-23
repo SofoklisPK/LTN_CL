@@ -343,8 +343,8 @@ def initialize_knowledgebase(optimizer=None,
                 PARAMETERS += list(func.parameters())
             OPTIMIZER = optimizer(PARAMETERS) if optimizer is not None else torch.optim.Adam(PARAMETERS)
             OPTIMIZER.zero_grad()
-            for a in AXIOMS.keys():
-                axiom(a, True)
+            # for a in AXIOMS.keys():
+            #     axiom(a, True)
             KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
             to_be_optimized = 1-KNOWLEDGEBASE
             true_sat_level = KNOWLEDGEBASE
