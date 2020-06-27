@@ -6,8 +6,13 @@ import time
 import random
 
 num_scenes = 5
-num_of_layers = 4
-max_epochs = 2000
+num_of_layers = 10
+max_epochs = 1000
+
+ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
+ltnw.set_existential_aggregator("max") # 'max', 'pmean'
+ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
+#ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
 
 ##################################
 ### Import data from csv files ###
@@ -18,7 +23,7 @@ with open('CLEVR_train_scenes.json') as f:
     scenes_json = scenes_json['scenes']
     f.close()
 
-#random.seed(42)
+random.seed(7)
 scenes_subset = random.sample(scenes_json, num_scenes)
 
 #with open('questions_short.json') as f:
@@ -111,11 +116,6 @@ print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Setting up LTN ******')    
 
-#ltnw.set_universal_aggreg("hmean")
-#ltnw.set_existential_aggregator("max")
-#ltnw.set_tnorm("luk")
-#ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
-
 
 # Object Constants/Variables
 for i in range(len(full_obj_set)):
@@ -149,33 +149,37 @@ for c in obj_colors:
     is_color = ''
     is_not_color = ''
     for not_c in obj_colors:
-        if not_c == c: is_color = 'forall ?obj: ' + c.capitalize() + '(?obj) -> '
+        if not_c == c: is_color = c.capitalize() + '(?obj)'
         if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
-    ltnw.axiom(is_color + is_not_color[:-1])
+    ltnw.axiom('forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1])
+    ltnw.axiom('forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color)
 ## objects can only be one size
 for s in obj_sizes:
     is_size = ''
     is_not_size = ''
     for not_s in obj_sizes:
-        if not_s == s: is_size = 'forall ?obj: ' + s.capitalize() + '(?obj) -> '
+        if not_s == s: is_size = s.capitalize() + '(?obj)'
         if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
-    ltnw.axiom(is_size + is_not_size[:-1])
+    ltnw.axiom('forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1])
+    ltnw.axiom('forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size)
 ## objects can only be one shape
 for sh in obj_shapes:
     is_shape = ''
     is_not_shape = ''
     for not_sh in obj_shapes:
-        if not_sh == sh: is_shape = 'forall ?obj: ' + sh.capitalize() + '(?obj) -> '
-        if not_sh != s: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
-    ltnw.axiom(is_shape + is_not_shape[:-1])
+        if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
+        if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
+    ltnw.axiom('forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1])
+    ltnw.axiom('forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape)
 ## objects can only be one material
 for m in obj_materials:
     is_material = ''
     is_not_material = ''
     for not_m in obj_materials:
-        if not_m == m: is_material = 'forall ?obj: ' + m.capitalize() + '(?obj) -> '
+        if not_m == m: is_material = m.capitalize() + '(?obj)'
         if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
-    ltnw.axiom(is_material + is_not_material[:-1])
+    ltnw.axiom('forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1])
+    ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
     
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -187,35 +191,43 @@ ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, lay
 ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Front(?o1,?o2) : o2 is in front of o1
 ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Left(?o1,?o2) : o2 is on the left of o1
 
-for p in right_pairs:
-    ltnw.axiom('forall ?right_pair : Right(?right_pair)')
-    ltnw.axiom('forall ?left_pair : ~Right(?left_pair)')
-for p in behind_pairs:
-    ltnw.axiom('forall ?behind_pair : Behind(?behind_pair)')
-    ltnw.axiom('forall ?front_pair : ~Behind(?front_pair)')
-for p in front_pairs:
-    ltnw.axiom('forall ?front_pair : Front(?front_pair)')
-    ltnw.axiom('forall ?behind_pair : ~Front(?behind_pair)')
-for p in left_pairs:
-    ltnw.axiom('forall ?left_pair : Left(?left_pair)')
-    ltnw.axiom('forall ?right_pair : ~Left(?right_pair)') 
 
-# Implicit Axioms about spacial relations
+ltnw.axiom('forall ?right_pair : Right(?right_pair)')
+ltnw.axiom('forall ?left_pair : ~Right(?left_pair)')
+
+ltnw.axiom('forall ?behind_pair : Behind(?behind_pair)')
+ltnw.axiom('forall ?front_pair : ~Behind(?front_pair)')
+
+ltnw.axiom('forall ?front_pair : Front(?front_pair)')
+ltnw.axiom('forall ?behind_pair : ~Front(?behind_pair)')
+
+ltnw.axiom('forall ?left_pair : Left(?left_pair)')
+ltnw.axiom('forall ?right_pair : ~Left(?right_pair)')
+
+# # Implicit Axioms about spacial relations
 ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
 ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
 ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
 ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
 ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
+ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
 #####################
 ### Train the LTN ###
@@ -224,25 +236,25 @@ time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Initialising LTN ******')
-ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
+ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, learn_rate=0.01)
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Training LTN ******')
-sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.1, track_values=True)#, early_stop_level=0.00001)
+sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.05, track_values=True)#, early_stop_level=0.00001)
 
 ####################
 ### Test the LTN ###
 ####################
 
 # ask queries about objects in image_val_00000.png
-print('\nIs object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
-print('Is object3 (large purple sphere) not to the left of object2 (small green cylinder)? ', ltnw.ask('~Left(object2,object3)'))
-print('Is object2 (small green cylinder) to the left of object1 (large gray cube)? ', ltnw.ask('Left(object1,object2)'))
-print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
-print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
-print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
+# print('\nIs object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
+# print('Is object3 (large purple sphere) not to the left of object2 (small green cylinder)? ', ltnw.ask('~Left(object2,object3)'))
+# print('Is object2 (small green cylinder) to the left of object1 (large gray cube)? ', ltnw.ask('Left(object1,object2)'))
+# print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
+# print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
+# print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
 #print('Is there an object to the right of object1 (large gray cube)?', ltnw.ask('exists ?obj: Right(object1,?obj)'))
 
 ####################
