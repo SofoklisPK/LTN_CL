@@ -312,7 +312,8 @@ def initialize_knowledgebase(optimizer=None,
                              formula_aggregator=lambda x: torch.mean(torch.cat(x, dim=0)) if x else None,
                              initial_sat_level_threshold=1.0,
                              track_sat_levels=10,
-                             max_trials=100):
+                             max_trials=100,
+                             learn_rate=0.01):
     global OPTIMIZER, KNOWLEDGEBASE, PARAMETERS, PREDICATES, FUNCTIONS, FORMULA_AGGREGATOR, AXIOMS
 
     FORMULA_AGGREGATOR = formula_aggregator
@@ -341,10 +342,10 @@ def initialize_knowledgebase(optimizer=None,
                 PARAMETERS += list(pred.parameters())
             for func in FUNCTIONS.values():
                 PARAMETERS += list(func.parameters())
-            OPTIMIZER = optimizer(PARAMETERS) if optimizer is not None else torch.optim.Adam(PARAMETERS)
+            OPTIMIZER = optimizer(PARAMETERS, lr=learn_rate) if optimizer is not None else torch.optim.Adam(PARAMETERS, lr=learn_rate)
             OPTIMIZER.zero_grad()
-            # for a in AXIOMS.keys():
-            #     axiom(a, True)
+            for a in AXIOMS.keys():
+                axiom(a, True)
             KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
             to_be_optimized = 1-KNOWLEDGEBASE
             true_sat_level = KNOWLEDGEBASE
@@ -374,7 +375,7 @@ def train(max_epochs=10000,
         if track_values: 
             dictw.writerow({key:value.detach().numpy()[0] for (key, value) in AXIOMS.items()})
         #to_be_optimized = 1-KNOWLEDGEBASE
-        to_be_optimized = torch.mean(torch.cat([1-x for x in AXIOMS.values()],dim=0))
+        to_be_optimized = torch.mean(torch.cat([(1-x) for x in AXIOMS.values()],dim=0))
         tmp = true_sat_level #
         true_sat_level = KNOWLEDGEBASE
         sat_level_diff = true_sat_level - tmp #

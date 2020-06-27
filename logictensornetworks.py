@@ -7,6 +7,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BIAS_factor = 0.0
 BIAS = 0.0
 LAYERS=1
+eps = 1e-10
 
 F_And = None
 F_Or = None
@@ -18,7 +19,7 @@ F_Exists = None
 
 
 def set_tnorm(tnorm):
-    assert tnorm in ['min','luk','prod','mean','']
+    assert tnorm in ['min','luk','prod','mean','new','']
     global F_And,F_Or,F_Implies,F_Not,F_Equiv,F_Forall
     if tnorm == "min":
         def F_And(wffs):
@@ -92,6 +93,32 @@ def set_tnorm(tnorm):
         def F_Equiv(wff1,wff2):
             return 1 - torch.abs(wff1-wff2)
 
+    if tnorm == "new":
+        def F_And(wffs):
+            # PROD
+            return torch.prod(wffs, dim=-1, keepdim=True)
+
+        def F_Or(wff1, wff2):
+            # 3 motivations for the change:
+                # - bounded to [0,1]
+                # - instead of derivative 0 on the edge case, derivative +eps
+                #        (+ is important, the derivative should always be positive)
+                # - doesn't change the derivative for values > 0
+            # MIGHT HAVE TO CHECK THE DIMENSIONS
+            return (1 - eps) * wff1 + (1 - eps) * wff2 - (1 - 2 * eps) * torch.mul(wff1, wff2)
+
+        def F_Implies(wff1, wff2):
+            # Reichenbach
+            return 1-wff1+torch.mul(wff1,wff2)
+
+        def F_Not(wff):
+            # according to standard goedel logic is
+            return 1-wff
+
+        def F_Equiv(wff1,wff2):
+            # Have to rethink this (but not often used)
+            return torch.min(wff1/wff2, wff2/wff1)
+
 
 def multi_axes_op(op, input, axes, keepdim=False):
     '''
@@ -113,12 +140,12 @@ def multi_axes_op(op, input, axes, keepdim=False):
 
 
 def set_universal_aggreg(aggreg):
-    assert aggreg in ['hmean','min','mean']
+    assert aggreg in ['hmean','min','mean','pmeaner']
     global F_Forall
     if aggreg == "hmean":
         def F_Forall(axis,wff):
             # return 1 / torch.mean(1/(wff+1e-10), dim=axis)
-            return 1 / multi_axes_op('mean', 1/(wff+1e-10), axes=axis)
+            return 1 / multi_axes_op('mean', 1/(wff+eps), axes=axis)
 
     if aggreg == "min":
         def F_Forall(axis,wff):
@@ -130,19 +157,40 @@ def set_universal_aggreg(aggreg):
             # return torch.mean(wff, dim=axis)
             return multi_axes_op('mean', wff, axes=axis)
 
+    if aggreg == "pmeaner":
+        def F_Forall(axis,wff):
+            p = 5
+            # hmean: 1 / tf.reduce_mean(1 / ((1 - eps) * xs + eps), axis=axis, keepdims=keepdims)
+            # pmean: tf.pow(eps+(1-eps)*tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
+            # pmean<1: tf.pow(tf.reduce_mean(tf.pow((1-eps)*xs+eps,p),axis=axis,keepdims=keepdims),1/p)
+            if p >= 1:
+                res = 1 - (eps+(1-eps)*multi_axes_op('mean', (1-wff).pow(p), axes=axis)).pow(1/p)
+            else:
+                res = 1 - multi_axes_op('mean', ((1-eps)*(1-wff)+eps).pow(p), axes=axis).pow(1/p)
+            return res
+
 
 def set_existential_aggregator(aggreg):
-    assert aggreg in ['max']
+    assert aggreg in ['max','pmean']
     global F_Exists
     if aggreg == "max":
         def F_Exists(axis, wff):
             # return torch.max(wff, dim=axis)[0]
             return multi_axes_op('max', wff, axes=axis)
 
+    if aggreg == "pmean":
+        def F_Exists(axis,wff):
+            p = 5
+            if p >= 1:
+                res = (eps+(1-eps)*multi_axes_op('mean', wff.pow(p), axes=axis)).pow(1/p)
+            else:
+                res = multi_axes_op('mean', ((1-eps)*wff+eps).pow(p), axes=axis).pow(1/p)
+            return res
 
-set_tnorm("luk")
-set_universal_aggreg("hmean")
-set_existential_aggregator("max")
+
+set_tnorm('new')
+set_universal_aggreg("pmeaner")
+set_existential_aggregator("pmean")
 
 
 def And(*wffs):
@@ -244,7 +292,7 @@ class Function(nn.Module):
             self.number_of_features = input_shape_spec
         self.output_shape_spec = output_shape_spec
         if fun_definition is None:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec]))
+            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec]-0.5))
             def apply_fun(*args):
                 tensor_args = torch.cat(args, axis=1)
                 self.X = torch.nn.Parameter(torch.cat([torch.ones(tensor_args.size([0], 1))]))
@@ -269,7 +317,7 @@ class Function(nn.Module):
 
     def reset_parameters(self):
         if self.pars:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec]))
+            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])-0.5)
             self.pars = [self.W]
 
 
@@ -288,8 +336,8 @@ class Predicate(nn.Module):
             self.number_of_features = number_of_features_or_vars
         if self.pred_definition is None:
             self.W = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
-                                requires_grad=True))
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True))
+                                requires_grad=True)-0.5)
+            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)-0.5)
             self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
             self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             def apply_pred(*args):
@@ -323,8 +371,8 @@ class Predicate(nn.Module):
         if self.pars:
             self.W = torch.nn.Parameter(
                 torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
-                           requires_grad=True))
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True))
+                           requires_grad=True)-0.5)
+            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)-0.5)
             self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
             self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             self.pars = [self.W, self.V, self.b, self.u]
