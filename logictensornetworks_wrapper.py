@@ -395,19 +395,20 @@ def train(max_epochs=10000,
 
 
 def ask(term_or_formula):
-    _t = None
-    try:
-        _t=_build_formula(_parse_formula(term_or_formula))
-    except:
-        pass
-    try:
-        _t=_build_term(_parse_term(term_or_formula))
-    except:
-        pass
-    if _t is None:
-        raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
-    else:
-        return _t.detach().numpy()
+    with torch.no_grad():
+        _t = None
+        try:
+            _t=_build_formula(_parse_formula(term_or_formula))
+        except:
+            pass
+        try:
+            _t=_build_term(_parse_term(term_or_formula))
+        except:
+            pass
+        if _t is None:
+            raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
+        else:
+            return _t.detach().numpy()
 
 
 def save_ltn(filename='ltn_library.pt'):
