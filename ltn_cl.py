@@ -8,10 +8,11 @@ import random
 num_scenes = 5
 num_of_layers = 10
 max_epochs = 1000
+learning_rate = 0.01
 
 ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("max") # 'max', 'pmean'
-ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
+ltnw.set_tnorm("luk") # 'min','luk','prod','mean','new'
 #ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
 
 ##################################
@@ -118,8 +119,8 @@ print('******* Setting up LTN ******')
 
 
 # Object Constants/Variables
-for i in range(len(full_obj_set)):
-    ltnw.constant('object'+str(i),full_obj_set[i])
+#for i in range(len(full_obj_set)):
+#    ltnw.constant('object'+str(i),full_obj_set[i])
 ltnw.variable('?obj',full_obj_set)
 ltnw.variable('?obj_2',full_obj_set)
 for i, feat in enumerate(obj_feat):
@@ -206,27 +207,27 @@ ltnw.axiom('forall ?right_pair : ~Left(?right_pair)')
 
 # # Implicit Axioms about spacial relations
 ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
+#ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
 ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
+#ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
 ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
+#ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
 ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
 ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
+#ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
 ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
 #####################
@@ -236,13 +237,13 @@ time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Initialising LTN ******')
-ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, learn_rate=0.01)
+ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, learn_rate=learning_rate)
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Training LTN ******')
-sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.05, track_values=True)#, early_stop_level=0.00001)
+sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.03, track_values=True)#, early_stop_level=0.00001)
 
 ####################
 ### Test the LTN ###
