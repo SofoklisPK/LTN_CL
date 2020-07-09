@@ -292,7 +292,7 @@ class Function(nn.Module):
             self.number_of_features = input_shape_spec
         self.output_shape_spec = output_shape_spec
         if fun_definition is None:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec]-0.5))
+            self.W = torch.nn.Parameter((torch.rand([self.number_of_features + 1, self.output_shape_spec])*2-1)/math.sqrt(self.number_of_features + 1))
             def apply_fun(*args):
                 tensor_args = torch.cat(args, axis=1)
                 self.X = torch.nn.Parameter(torch.cat([torch.ones(tensor_args.size([0], 1))]))
@@ -317,7 +317,7 @@ class Function(nn.Module):
 
     def reset_parameters(self):
         if self.pars:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])-0.5)
+            self.W = torch.nn.Parameter((torch.rand([self.number_of_features + 1, self.output_shape_spec])*2-1)/math.sqrt(self.number_of_features + 1))
             self.pars = [self.W]
 
 
@@ -335,9 +335,9 @@ class Predicate(nn.Module):
         else:
             self.number_of_features = number_of_features_or_vars
         if self.pred_definition is None:
-            self.W = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
-                                requires_grad=True)-0.5)
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)-0.5)
+            self.W = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
+                                requires_grad=True)*2-1)/math.sqrt(self.number_of_features + 1))
+            self.V = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1)/math.sqrt(self.number_of_features + 1))
             self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
             self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             def apply_pred(*args):
@@ -370,9 +370,9 @@ class Predicate(nn.Module):
     def reset_parameters(self):
         if self.pars:
             self.W = torch.nn.Parameter(
-                torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
-                           requires_grad=True)-0.5)
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)-0.5)
+                (torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
+                           requires_grad=True)*2-1)/math.sqrt(self.number_of_features + 1))
+            self.V = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1)/math.sqrt(self.number_of_features + 1))
             self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
             self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             self.pars = [self.W, self.V, self.b, self.u]

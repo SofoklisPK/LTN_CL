@@ -10,8 +10,8 @@ import itertools as IT
 num_scene_groups = 20 # each subgroup contains 50 scenes
 num_of_layers = 10
 
-ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
-ltnw.set_existential_aggregator("max") # 'max', 'pmean'
+ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
+ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 ltnw.set_tnorm("luk") # 'min','luk','prod','mean','new'
 #ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
 
@@ -35,7 +35,7 @@ def grouper(n, iterable):
     iterable = iter(iterable)
     return iter(lambda: list(IT.islice(iterable, n)), [])
 
-#random.seed(42) 
+random.seed(42) 
 split_scenes = list(grouper(50, scenes_json))
 split_scenes = random.sample(split_scenes, num_scene_groups)
 
