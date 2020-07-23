@@ -6,8 +6,9 @@ import time
 import random
 import numpy as np
 import itertools as IT
+import perception
 
-num_scene_groups = 20 # each subgroup contains 50 scenes
+num_scene_groups = 10 # each subgroup contains 10 scenes
 num_of_layers = 10
 
 ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
@@ -20,12 +21,10 @@ ltnw.set_tnorm("luk") # 'min','luk','prod','mean','new'
 ##################################
 start_time = time.time()
 
-with open('CLEVR_train_scenes.json') as f:
+with open('scenes_test.json') as f:
     scenes_json = json.load(f)
     scenes_json = scenes_json['scenes']
     f.close()
-
-
 
 def grouper(n, iterable):
     """
@@ -35,8 +34,8 @@ def grouper(n, iterable):
     iterable = iter(iterable)
     return iter(lambda: list(IT.islice(iterable, n)), [])
 
-#random.seed(42) 
-split_scenes = list(grouper(50, scenes_json))
+random.seed(42) 
+split_scenes = list(grouper(10, scenes_json))
 split_scenes = random.sample(split_scenes, num_scene_groups)
 
 #possible features of an object (excluding 3 pixel-coords)
@@ -46,8 +45,7 @@ obj_shapes = ['cube','sphere','cylinder']
 obj_materials = ['rubber','metal']
 ## obj_feat : ['gray','blue','brown','yellow','red','green','purple','cyan','small','large','cube','sphere','cylinder','rubber','metal']
 obj_feat = obj_colors + obj_sizes + obj_shapes + obj_materials
-num_of_features = len(obj_feat) + 3
-## num_of features: 18 , The extra 3 are the pixel coordinates (did not include 3d-coords and rotation yet)
+num_of_features = 512
 
 ##############################
 ### Set up LTN Predicates ###
@@ -187,6 +185,7 @@ print('******* Testing on JSON subgroup data ******')
 for scenes_subset in split_scenes:
     print( '*', end='')
     full_obj_set = [] #list of all objects from all scenes
+    full_obj_feat = [] #list of all features per object
     right_pairs = [] #list of index pairs [o1,o2] where o2 is to the right of o1 
     behind_pairs = [] #list of index pairs [o1,o2] where o2 is behind of o1 
     front_pairs = [] #list of index pairs [o1,o2] where o2 is to the in front of o1 
@@ -194,79 +193,88 @@ for scenes_subset in split_scenes:
 
     for idx, scene in enumerate(scenes_subset):
 
+        # Skip over scenes with unclear annotations (num of objects dont equal num of masks)
+        if len(scene['objects']) != len(scene['objects_detection']) : continue
+
         # Number of objects parsed from data (used for indexing of object relations)
         num_obj = len(full_obj_set) 
 
         # build set of objects in an image (image 0)
-        scene_obj_set = []
-        for o in scene['objects']:
+        # scene_obj_set = []
+        scene_obj_feat = []
+        for idx, o in enumerate(scene['objects']):
             color_vec = [(o['color'] == c)*1 for c in obj_colors]
             size_vec = [(o['size'] == s)*1 for s in obj_sizes]
             shape_vec = [(o['shape'] == sh)*1 for sh in obj_shapes]
             material_vec =[(o['material'] == m)*1 for m in obj_materials]
-            pixel_vec = [o['pixel_coords'][0]/480, o['pixel_coords'][1]/320, o['pixel_coords'][0]/32]
-            scene_obj_set.append(color_vec + size_vec + shape_vec + material_vec + pixel_vec)
-            full_obj_set.append(color_vec + size_vec + shape_vec + material_vec + pixel_vec)
+            #pixel_vec = [o['pixel_coords'][0]/480, o['pixel_coords'][1]/320, o['pixel_coords'][0]/32]
+            # object features (used to categories and collect groups of same-featured objects)
+            scene_obj_feat.append(color_vec + size_vec + shape_vec + material_vec)
+            full_obj_feat.append(color_vec + size_vec + shape_vec + material_vec)
+            # set of objects in current scene, and of all objects witnessed
+            #scene_obj_set.append(perception.get_vector(scene,idx))
+            full_obj_set.append(perception.get_vector(scene,idx))
         #print('All objects: ', obj_set)
 
         # right relationship for each object in an image (image 0)
-        for i in range(len(scene_obj_set)):
+        for i in range(len(scene_obj_feat)):
             for j in range(len(scene['relationships']['right'][i])):
                 r_pair = [num_obj+i, num_obj+scene['relationships']['right'][i][j]]    
                 right_pairs.append(r_pair)
         #print('Right pairs: ', right_pairs)
 
         # behind relationship for each object in an image (image 0)   
-        for i in range(len(scene_obj_set)):
+        for i in range(len(scene_obj_feat)):
             for j in range(len(scene['relationships']['behind'][i])):
                 b_pair = [num_obj+i, num_obj+scene['relationships']['behind'][i][j]]
                 behind_pairs.append(b_pair)
         #print('Behind pairs: ', behind_pairs)
 
         # front relationship for each object in an image (image 0)   
-        for i in range(len(scene_obj_set)):
+        for i in range(len(scene_obj_feat)):
             for j in range(len(scene['relationships']['front'][i])):
                 f_pair = [num_obj+i, num_obj+scene['relationships']['front'][i][j]]
                 front_pairs.append(f_pair)
         #print('Front pairs:', front_pairs)
 
         # left relationship for each object in an image (image 0)
-        for i in range(len(scene_obj_set)):
+        for i in range(len(scene_obj_feat)):
             for j in range(len(scene['relationships']['left'][i])):
                 l_pair = [num_obj+i, num_obj+scene['relationships']['left'][i][j]]
                 left_pairs.append(l_pair)
         #print('Left pairs:', left_pairs)
 
-
     ### Create Subsets of object attributes
     obj_attr, not_obj_attr = {}, {}
     for i, feat in enumerate(obj_feat):
-        obj_attr[feat] = [x for x in full_obj_set if x[i]==1]
-        not_obj_attr[feat] = [x for x in full_obj_set if x[i]==0]
+        obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==1]
+        not_obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==0]
+        # Make sure to have balanced data for each attribute (is and ~is) 
+        # by only taking maximum num of negative attribute samples equal to num of positive samples
         not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
 
-    #################################
-    ### Set Up Variable/Constants ###
-    #################################
-
+    ##################
+    ### Set Up LTN ###
+    ##################
     # time_diff = time.time()-start_time
     # print('Time to complete : ', time_diff)
     # start_time = time.time() 
-    # print('******* Setting up Variable/Constants ******')    
+    # print('******* Setting up LTN ******')    
 
+    num_of_features = len(full_obj_set[0]) # =512 (output of resnet-32 layer3 for whole image (256) + object (256))
 
     # Object Constants/Variables
     #for i in range(len(full_obj_set)):
     #    ltnw.constant('object'+str(i),full_obj_set[i])
-    ltnw.variable('?obj',full_obj_set)
-    ltnw.variable('?obj_2',full_obj_set)
+    ltnw.variable('?obj',torch.stack(full_obj_set))
+    ltnw.variable('?obj_2',torch.stack(full_obj_set))
     for i, feat in enumerate(obj_feat):
-        ltnw.variable('?is_'+feat, obj_attr[feat])
-        ltnw.variable('?isnot_'+feat, not_obj_attr[feat])
-    ltnw.variable('?right_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in right_pairs])
-    ltnw.variable('?left_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in left_pairs])
-    ltnw.variable('?front_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in front_pairs])
-    ltnw.variable('?behind_pair', [full_obj_set[p[0]]+full_obj_set[p[1]] for p in behind_pairs])
+        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]))
+        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]))
+    ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]))
+    ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]))
+    ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]))
+    ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]))
 
     ## Test the axioms on the freshly declared variables
     for a in axioms.keys():

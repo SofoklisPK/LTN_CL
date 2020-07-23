@@ -10,19 +10,14 @@ with open('axioms_values.csv', 'r') as f:
     df =  pd.read_csv(f)
 
 df['sat_level'] = df.mean(numeric_only=True, axis=1)
-#fig = px.line(df['sat_level'])
-#fig.show()
-#df['sat_level'].plot()
-#plt.show()
 
 fig = px.line(df)
-#fig.update_layout(showlegend=False)
-#fig.update_layout(legend_orientation="v")
 fig.update_layout(legend = {'x': -0.7, 'y':0, 'font':{'size':6}})
 
 fig.show()
-#fig.write_html("path/to/file.html")
 
+
+#fig.write_html("path/to/file.html")
 
 #fig = px.line(df[['forall ?is_gray : Gray(?is_gray)','forall ?isnot_gray : ~Gray(?isnot_gray)']])
 #fig.show()
