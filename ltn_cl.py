@@ -7,13 +7,13 @@ import random
 import perception
 
 num_scenes = 5
-num_of_layers = 10
+num_of_layers = 1
 max_epochs = 1000
 learning_rate = 0.01
 
-ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
-ltnw.set_existential_aggregator("max") # 'max', 'pmean'
-ltnw.set_tnorm("luk") # 'min','luk','prod','mean','new'
+ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
+ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
+ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
 #ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
 
 ##################################
@@ -132,15 +132,15 @@ num_of_features = len(full_obj_set[0]) # =512 (output of resnet-32 layer3 for wh
 # Object Constants/Variables
 #for i in range(len(full_obj_set)):
 #    ltnw.constant('object'+str(i),full_obj_set[i])
-ltnw.variable('?obj',torch.stack(full_obj_set))
-ltnw.variable('?obj_2',torch.stack(full_obj_set))
+ltnw.variable('?obj',torch.stack(full_obj_set).numpy())
+ltnw.variable('?obj_2',torch.stack(full_obj_set).numpy())
 for i, feat in enumerate(obj_feat):
-    ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]))
-    ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]))
-ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]))
-ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]))
-ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]))
-ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]))
+    ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]).numpy())
+    ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]).numpy())
+ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]).numpy())
+ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]).numpy())
+ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]).numpy())
+ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]).numpy())
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)

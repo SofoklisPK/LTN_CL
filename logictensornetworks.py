@@ -154,12 +154,12 @@ def set_universal_aggreg(aggreg):
 
     if aggreg == "mean":
         def F_Forall(axis,wff):
-            # return torch.mean(wff, dim=axis)
-            return multi_axes_op('mean', wff, axes=axis)
+            return torch.mean(wff, dim=axis)
+            # return multi_axes_op('mean', wff, axes=axis)
 
     if aggreg == "pmeaner":
         def F_Forall(axis,wff):
-            p = 0.5
+            p = -2
             # hmean: 1 / tf.reduce_mean(1 / ((1 - eps) * xs + eps), axis=axis, keepdims=keepdims)
             # pmean: tf.pow(eps+(1-eps)*tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
             # pmean<1: tf.pow(tf.reduce_mean(tf.pow((1-eps)*xs+eps,p),axis=axis,keepdims=keepdims),1/p)
@@ -180,7 +180,7 @@ def set_existential_aggregator(aggreg):
 
     if aggreg == "pmean":
         def F_Exists(axis,wff):
-            p = 0.5
+            p = -2
             # if p >= 1:
             #     res = (eps+(1-eps)*multi_axes_op('mean', wff.pow(p), axes=axis)).pow(1/p)
             # else:
@@ -240,7 +240,7 @@ def Forall(vars,wff):
         vars = (vars,)
     result_doms = [x for x in wff.doms if x not in [var.doms[0] for var in vars]]
     quantif_axis = [wff.doms.index(var.doms[0]) for var in vars]
-    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.ByteTensor)
+    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.BoolTensor)
     ones = torch.ones((1,)*(len(result_doms)+1), requires_grad=True)
     result = F_Forall(quantif_axis, wff) if not_empty_vars else ones
 
@@ -253,7 +253,7 @@ def Exists(vars,wff):
         vars = (vars,)
     result_doms = [x for x in wff.doms if x not in [var.doms[0] for var in vars]]
     quantif_axis = [wff.doms.index(var.doms[0]) for var in vars]
-    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.ByteTensor)
+    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.BoolTensor)
     zeros = torch.zeros((1,) * (len(result_doms) + 1), requires_grad=True)
     result = F_Exists(quantif_axis, wff) if not_empty_vars else zeros
     result.doms = result_doms
