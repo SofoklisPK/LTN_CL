@@ -159,7 +159,7 @@ def set_universal_aggreg(aggreg):
 
     if aggreg == "pmeaner":
         def F_Forall(axis,wff):
-            p = 5
+            p = 0.5
             # hmean: 1 / tf.reduce_mean(1 / ((1 - eps) * xs + eps), axis=axis, keepdims=keepdims)
             # pmean: tf.pow(eps+(1-eps)*tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
             # pmean<1: tf.pow(tf.reduce_mean(tf.pow((1-eps)*xs+eps,p),axis=axis,keepdims=keepdims),1/p)
@@ -180,7 +180,7 @@ def set_existential_aggregator(aggreg):
 
     if aggreg == "pmean":
         def F_Exists(axis,wff):
-            p = 5
+            p = 0.5
             # if p >= 1:
             #     res = (eps+(1-eps)*multi_axes_op('mean', wff.pow(p), axes=axis)).pow(1/p)
             # else:
