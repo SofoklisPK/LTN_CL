@@ -127,3 +127,7 @@ dmypy.json
 # Custom ignored files
 *.png
 .vscode/*
+*.pt
+*.json
+*.csv
+*.json
