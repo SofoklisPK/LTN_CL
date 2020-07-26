@@ -19,7 +19,12 @@ import csv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #print("device = ", device)
 
-CONFIGURATION = {"max_nr_iterations": 1000, "error_on_redeclare": False}
+CONFIGURATION = {"max_nr_iterations": 1000,
+                "error_on_redeclare": False,
+                "tnorm": 'new',
+                "universal_aggregator": 'pmeaner',
+                "existential_aggregator": 'pmean',
+                "layers": 1}
 
 CONSTANTS = {}
 PREDICATES = {}
@@ -32,18 +37,22 @@ PARAMETERS = []
 
 
 def set_tnorm(tnorm):
+    CONFIGURATION['tnorm'] = tnorm
     ltn.set_tnorm(tnorm)
 
 
 def set_universal_aggreg(aggr):
+    CONFIGURATION['universal_aggregator'] = aggr
     ltn.set_universal_aggreg(aggr)
 
 
 def set_existential_aggregator(aggr):
+    CONFIGURATION['existential_aggregator'] = aggr
     ltn.set_existential_aggregator(aggr)
 
 
 def set_layers(layers):
+    CONFIGURATION['layers'] = layers
     ltn.LAYERS = layers
 
 
@@ -69,7 +78,7 @@ def _variable_label(label):
     return label
 
 
-def variable(label,*args,**kwargs):
+def variable(label, *args,**kwargs):
     label=_variable_label(label)
     if label in VARIABLES and args == () and kwargs == {}:
         return VARIABLES[label]
@@ -77,7 +86,7 @@ def variable(label,*args,**kwargs):
         logging.getLogger(__name__).error("Attempt at redeclaring existing variable %s" % label)
         raise Exception("Attempt at redeclaring existing variable %s" % label)
     else:
-        if label in VARIABLES:
+        if kwargs.pop('verbose',True) and label in VARIABLES:
             logging.getLogger(__name__).warning("Redeclaring existing variable %s" % label)
         VARIABLES[label] = ltn.variable(label,*args,**kwargs)
         return VARIABLES[label]
@@ -427,7 +436,8 @@ def save_ltn(filename='ltn_library.pt'):
     ltn_library = {
         'predicate_state_dicts': pred_dicts,
         'function_state_dicts': func_dicts,
-        'optimizer_state_dict': optim_dict
+        'optimizer_state_dict': optim_dict,
+        'configuration': CONFIGURATION
     }
 
     torch.save(ltn_library, filename)
@@ -440,6 +450,7 @@ def load_ltn(filename='ltn_library.pt'):
     pred_dicts = ltn_library['predicate_state_dicts']
     func_dicts = ltn_library['function_state_dicts']
     optim_dict = ltn_library['optimizer_state_dict']
+    CONFIGURATION = ltn_library['configuration']
 
     # TODO initialize predicates/functions/optimizer first?
     for key in pred_dicts.keys():
@@ -448,5 +459,10 @@ def load_ltn(filename='ltn_library.pt'):
     for key in func_dicts.keys():
         FUNCTIONS[key].load_state_dict(func_dicts[key])
     if OPTIMIZER is not None : OPTIMIZER.load_state_dict(optim_dict)
+
+    set_tnorm(CONFIGURATION.get('tnorm'))
+    set_universal_aggreg(CONFIGURATION.get('universal_aggregator'))
+    set_existential_aggregator(CONFIGURATION.get('existential_aggregator'))
+    set_layers(CONFIGURATION.get('layers'))
     
     

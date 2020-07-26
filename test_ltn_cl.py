@@ -7,14 +7,15 @@ import random
 import numpy as np
 import itertools as IT
 import perception
+import tqdm
 
-num_scene_groups = 10 # each subgroup contains 10 scenes
-num_of_layers = 10
+num_scene_groups = 50 # each subgroup contains 10 scenes
+scene_group_size = 10
 
-ltnw.set_universal_aggreg("hmean") # 'hmean', 'mean', 'min', 'pmeaner'
-ltnw.set_existential_aggregator("max") # 'max', 'pmean'
-ltnw.set_tnorm("luk") # 'min','luk','prod','mean','new'
-#ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
+#ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
+#ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
+#ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
+ltnw.set_layers(3) # TODO: fix loading layer number before trained weights
 
 ##################################
 ### Import data from csv files ###
@@ -35,7 +36,7 @@ def grouper(n, iterable):
     return iter(lambda: list(IT.islice(iterable, n)), [])
 
 random.seed(42) 
-split_scenes = list(grouper(10, scenes_json))
+split_scenes = list(grouper(scene_group_size, scenes_json))
 split_scenes = random.sample(split_scenes, num_scene_groups)
 
 #possible features of an object (excluding 3 pixel-coords)
@@ -58,7 +59,7 @@ print('******* Predicates for Object Features ******')
 
 # Object Features
 for feat in obj_feat:
-    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, layers=num_of_layers)
+    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -66,10 +67,10 @@ start_time = time.time()
 print('******* Predicates for Spacial Relations ******')
 
 # Spacial Relations
-ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Right(?o1,?o2) : o2 is on the right of o1
-ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Behind(?o1,?o2) : o2 is behind o1
-ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Front(?o1,?o2) : o2 is in front of o1
-ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Left(?o1,?o2) : o2 is on the left of o1
+ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features) # Right(?o1,?o2) : o2 is on the right of o1
+ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features) # Behind(?o1,?o2) : o2 is behind o1
+ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features) # Front(?o1,?o2) : o2 is in front of o1
+ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features) # Left(?o1,?o2) : o2 is on the left of o1
 
 ####################
 ### Load the LTN ###
@@ -181,9 +182,9 @@ axioms['forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)'] = []
 start_time = time.time()
 s_time = time.time()
 print('******* Testing on JSON subgroup data ******')
+pbar = tqdm.tqdm(total=num_scene_groups)
 
 for scenes_subset in split_scenes:
-    print( '*', end='')
     full_obj_set = [] #list of all objects from all scenes
     full_obj_feat = [] #list of all features per object
     right_pairs = [] #list of index pairs [o1,o2] where o2 is to the right of o1 
@@ -266,19 +267,26 @@ for scenes_subset in split_scenes:
     # Object Constants/Variables
     #for i in range(len(full_obj_set)):
     #    ltnw.constant('object'+str(i),full_obj_set[i])
-    ltnw.variable('?obj',torch.stack(full_obj_set))
-    ltnw.variable('?obj_2',torch.stack(full_obj_set))
+
+    # 'verbose' argument is used to bypass the variable redeclare warning message
+    ltnw.variable('?obj',torch.stack(full_obj_set), verbose=False)
+    ltnw.variable('?obj_2',torch.stack(full_obj_set), verbose=False)
     for i, feat in enumerate(obj_feat):
-        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]))
-        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]))
-    ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]))
-    ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]))
-    ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]))
-    ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]))
+        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]), verbose=False)
+        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]), verbose=False)
+    ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]), verbose=False)
+    ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]), verbose=False)
+    ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]), verbose=False)
+    ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]), verbose=False)
 
     ## Test the axioms on the freshly declared variables
     for a in axioms.keys():
         axioms[a].append(ltnw.ask(a))
+
+    axioms_mean = {k:sum(axioms[k])/len(axioms[k]) for k in axioms.keys()}
+    all_axioms_mean = np.array([axioms_mean[k] for k in axioms_mean.keys()]).sum()/len(axioms_mean)
+    pbar.set_description("Current Mean : %f" % (all_axioms_mean))
+    pbar.update(1)
 
 axioms_mean = {k:sum(axioms[k])/len(axioms[k]) for k in axioms.keys()}
 axioms_min = {k:min(axioms[k]) for k in axioms.keys()}

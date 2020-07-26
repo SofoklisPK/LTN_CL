@@ -6,15 +6,14 @@ import time
 import random
 import perception
 
-num_scenes = 5
-num_of_layers = 1
+num_scenes = 10
 max_epochs = 1000
-learning_rate = 0.01
+learning_rate = 2e-4
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
-#ltnw.set_layers(4) # logictensornetworks.py line 277 makes this irrelevant to actual layers used!!
+ltnw.set_layers(3)
 
 ##################################
 ### Import data from csv files ###
@@ -149,7 +148,7 @@ print('******* Predicate/Axioms for Object Features ******')
 
 # Object Features
 for feat in obj_feat:
-    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, layers=num_of_layers)
+    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
 
 for i, feat in enumerate(obj_feat):
     ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
@@ -198,10 +197,10 @@ print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Predicate/Axioms for Spacial Relations ******')
 # Spacial Relations
-ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Right(?o1,?o2) : o2 is on the right of o1
-ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Behind(?o1,?o2) : o2 is behind o1
-ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Front(?o1,?o2) : o2 is in front of o1
-ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, layers=num_of_layers) # Left(?o1,?o2) : o2 is on the left of o1
+ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features) # Right(?o1,?o2) : o2 is on the right of o1
+ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features) # Behind(?o1,?o2) : o2 is behind o1
+ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features) # Front(?o1,?o2) : o2 is in front of o1
+ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features) # Left(?o1,?o2) : o2 is on the left of o1
 
 
 ltnw.axiom('forall ?right_pair : Right(?right_pair)')
