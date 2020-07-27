@@ -6,6 +6,8 @@ import time
 import random
 import perception
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 num_scenes = 10
 max_epochs = 1000
 learning_rate = 2e-4
@@ -245,7 +247,7 @@ ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
 #####################
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
-start_time = time.time() 
+start_time = time.time()
 print('******* Initialising LTN ******')
 ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, learn_rate=learning_rate)
 
@@ -253,7 +255,7 @@ time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Training LTN ******')
-sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.001, track_values=True)#, early_stop_level=0.00001)
+sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.001, track_values=True, device=device)#, early_stop_level=0.00001)
 
 ####################
 ### Test the LTN ###

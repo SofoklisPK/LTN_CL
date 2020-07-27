@@ -366,8 +366,8 @@ def initialize_knowledgebase(optimizer=None,
 
 
 def train(max_epochs=10000,
-          sat_level_epsilon=.0001, early_stop_level = None, track_values = False):
-    global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS
+          sat_level_epsilon=.0001, early_stop_level = None, track_values = False, device=torch.device('cpu')):
+    global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS, PREDICATES
     pbar = tqdm.tqdm(total=max_epochs)
     low_diff_cnt, true_sat_level = 0.0, 1.0
     if track_values:    
@@ -376,13 +376,14 @@ def train(max_epochs=10000,
         dictw.writeheader()
     if KNOWLEDGEBASE is None:
         raise Exception("KNOWLEDGEBASE not initialized. Please run initialize_knowledgebase first.")
+    for p in PREDICATES.values(): p.to(device)
     for i in range(max_epochs):
         OPTIMIZER.zero_grad()
         for a in AXIOMS.keys():
             axiom(a, True)
         KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
         if track_values: 
-            dictw.writerow({key:value.detach().numpy()[0] for (key, value) in AXIOMS.items()})
+            dictw.writerow({key:value.cpu().detach().numpy()[0] for (key, value) in AXIOMS.items()})
         #to_be_optimized = 1-KNOWLEDGEBASE
         to_be_optimized = torch.mean(torch.cat([(1-x) for x in AXIOMS.values()],dim=0))
         tmp = true_sat_level #
