@@ -418,7 +418,7 @@ def ask(term_or_formula):
         if _t is None:
             raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
         else:
-            return _t.detach().numpy()
+            return _t.cpu().detach().numpy()
 
 
 def save_ltn(filename='ltn_library.pt'):
@@ -443,7 +443,7 @@ def save_ltn(filename='ltn_library.pt'):
 
     torch.save(ltn_library, filename)
 
-def load_ltn(filename='ltn_library.pt'):
+def load_ltn(filename='ltn_library.pt', device=torch.device('cpu')):
     global PREDICATES, FUNCTIONS, OPTIMIZER
 
     ltn_library = torch.load(filename)
@@ -457,8 +457,10 @@ def load_ltn(filename='ltn_library.pt'):
     for key in pred_dicts.keys():
         predicate(key)
         PREDICATES[key].load_state_dict(pred_dicts[key])
+        PREDICATES[key].to(device)
     for key in func_dicts.keys():
         FUNCTIONS[key].load_state_dict(func_dicts[key])
+        FUNCTIONS[key].to(device)
     if OPTIMIZER is not None : OPTIMIZER.load_state_dict(optim_dict)
 
     set_tnorm(CONFIGURATION.get('tnorm'))

@@ -9,6 +9,8 @@ import itertools as IT
 import perception
 import tqdm
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 num_scene_groups = 50 # each subgroup contains 10 scenes
 scene_group_size = 10
 
@@ -82,7 +84,7 @@ start_time = time.time()
 print('******* Loading saved LTN ******')
 
 #ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
-ltnw.load_ltn('ltn_library.pt')
+ltnw.load_ltn('ltn_library.pt', device=device)
 
 
 ##############################

@@ -347,7 +347,7 @@ class Predicate(nn.Module):
             self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             def apply_pred(*args):
                 tensor_args = torch.cat(args, dim=1)
-                X = torch.cat((torch.ones(tensor_args.size()[0], 1), tensor_args), 1)
+                X = torch.cat((torch.ones(tensor_args.size()[0], 1), tensor_args), 1).to(self.W.device)
                 XW = torch.matmul(X.unsqueeze(0).repeat(self.layers, 1, 1), self.W)
                 XWX = torch.squeeze(torch.matmul(X.unsqueeze(1), XW.permute(1, 2, 0)), 1)
                 XV = torch.matmul(X, torch.t(self.V))
@@ -376,10 +376,10 @@ class Predicate(nn.Module):
         if self.pars:
             #self.W = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True))
             #nn.init.xavier_uniform_(self.W, gain=nn.init.calculate_gain('tanh'))
-            self.W = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True)*2-1))
+            self.W = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True)*2-1)
             #self.V = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, requires_grad=True))
             #nn.init.xavier_uniform_(self.V, gain=nn.init.calculate_gain('tanh'))
-            self.V = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1))
+            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1)
             #self.b = torch.nn.Parameter(torch.empty(1, self.layers, requires_grad=True))
             #nn.init.xavier_uniform_(self.b, gain=nn.init.calculate_gain('tanh'))
             self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
