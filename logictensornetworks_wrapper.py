@@ -322,7 +322,8 @@ def initialize_knowledgebase(optimizer=None,
                              initial_sat_level_threshold=1.0,
                              track_sat_levels=10,
                              max_trials=100,
-                             learn_rate=0.01):
+                             learn_rate=0.01,
+                             device=torch.device('cpu')):
     global OPTIMIZER, KNOWLEDGEBASE, PARAMETERS, PREDICATES, FUNCTIONS, FORMULA_AGGREGATOR, AXIOMS
 
     FORMULA_AGGREGATOR = formula_aggregator
@@ -335,6 +336,7 @@ def initialize_knowledgebase(optimizer=None,
 
     # if there are variables to optimize
     if KNOWLEDGEBASE is not None:
+        for p in PREDICATES.values(): p.to(device)
         for pred in PREDICATES.values():
             PARAMETERS += list(pred.parameters())
         for func in FUNCTIONS.values():
@@ -363,12 +365,13 @@ def initialize_knowledgebase(optimizer=None,
             if track_sat_levels is not None and i % track_sat_levels == 0:
                 logging.getLogger(__name__).info("INITIALIZE %s sat level -----> %s" % (i, true_sat_level))
         logging.getLogger(__name__).info("INITIALIZED with sat level = %s" % (true_sat_level))
+        return true_sat_level
 
 
-def train(max_epochs=10000,
-          sat_level_epsilon=.0001, early_stop_level = None, track_values = False, device=torch.device('cpu')):
+def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None, 
+                track_values = False, device=torch.device('cpu'), show_progress=True):
     global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS, PREDICATES
-    pbar = tqdm.tqdm(total=max_epochs)
+    if show_progress : pbar = tqdm.tqdm(total=max_epochs)
     low_diff_cnt, true_sat_level = 0.0, 1.0
     if track_values:    
         f = open('axioms_values.csv', 'w')
@@ -389,7 +392,7 @@ def train(max_epochs=10000,
         tmp = true_sat_level #
         true_sat_level = KNOWLEDGEBASE
         sat_level_diff = true_sat_level - tmp #
-        if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
+        #if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
         if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1  #
         else: low_diff_cnt = 0 #
         if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon: 
@@ -400,8 +403,10 @@ def train(max_epochs=10000,
             return to_be_optimized #
         to_be_optimized.backward()
         OPTIMIZER.step()
-        pbar.set_description("Current Satisfiability %f" % (true_sat_level))
-        pbar.update(1)
+        if show_progress : 
+            pbar.set_description("Current Satisfiability %f" % (true_sat_level))
+            pbar.update(1)
+    return true_sat_level
 
 
 def ask(term_or_formula):

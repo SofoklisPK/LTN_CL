@@ -5,12 +5,16 @@ import torch
 import time
 import random
 import perception
+import tqdm
+import csv
+import itertools as IT
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-num_scenes = 10
-max_epochs = 1000
-learning_rate = 2e-4
+num_batches = 3
+scene_batch_size = 10
+max_epochs = 150
+learning_rate = 1e-3
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
@@ -26,8 +30,17 @@ with open('scenes_train.json') as f:
     scenes_json = scenes_json['scenes']
     f.close()
 
+def grouper(n, iterable):
+    """
+    >>> list(grouper(3, 'ABCDEFG'))
+    [['A', 'B', 'C'], ['D', 'E', 'F'], ['G']]
+    """
+    iterable = iter(iterable)
+    return iter(lambda: list(IT.islice(iterable, n)), [])
+
 random.seed(7)
-scenes_subset = random.sample(scenes_json, num_scenes)
+split_scenes = list(grouper(scene_batch_size, scenes_json))
+scenes_subset = random.sample(split_scenes, num_batches)
 #scenes_subset = scenes_json[0:6] # for testing purposes
 
 #with open('questions_short.json') as f:
@@ -60,7 +73,7 @@ behind_pairs = [] #list of index pairs [o1,o2] where o2 is behind of o1
 front_pairs = [] #list of index pairs [o1,o2] where o2 is to the in front of o1 
 left_pairs = [] #list of index pairs [o1,o2] where o2 is to the left of o1 
 
-for idx, scene in enumerate(scenes_subset):
+for idx, scene in enumerate(scenes_subset[0]):
 
     # Number of objects parsed from data (used for indexing of object relations)
     num_obj = len(full_obj_set) 
@@ -128,20 +141,25 @@ start_time = time.time()
 print('******* Setting up LTN ******')    
 
 
-num_of_features = len(full_obj_set[0]) # =512 (output of resnet-32 layer3 for whole image (256) + object (256))
+num_of_features = 512 # =512 (output of resnet-32 layer3 for whole image (256) + object (256))
 
 # Object Constants/Variables
 #for i in range(len(full_obj_set)):
 #    ltnw.constant('object'+str(i),full_obj_set[i])
-ltnw.variable('?obj',torch.stack(full_obj_set).numpy())
-ltnw.variable('?obj_2',torch.stack(full_obj_set).numpy())
+ltnw.variable('?obj',torch.stack(full_obj_set))
+ltnw.variable('?obj_2',torch.stack(full_obj_set))
 for i, feat in enumerate(obj_feat):
-    ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]).numpy())
-    ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]).numpy())
-ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]).numpy())
-ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]).numpy())
-ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]).numpy())
-ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]).numpy())
+    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
+    if len(obj_attr[feat]) > 0: 
+        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]))
+        ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+    if len(not_obj_attr[feat]) > 0: 
+        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]))
+        ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')   
+ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]))
+ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]))
+ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]))
+ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]))
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -149,12 +167,12 @@ start_time = time.time()
 print('******* Predicate/Axioms for Object Features ******')
 
 # Object Features
-for feat in obj_feat:
-    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
+# for feat in obj_feat:
+#     ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
 
-for i, feat in enumerate(obj_feat):
-    ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
-    ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')
+# for i, feat in enumerate(obj_feat):
+#     ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+#     ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')
 
 # Implicit axioms about object features
 ## objects can only be one color
@@ -248,14 +266,112 @@ ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time()
-print('******* Initialising LTN ******')
-ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, learn_rate=learning_rate)
+# print('******* Initialising LTN ******')
+# sat_level = ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, device=device, learn_rate=learning_rate)
+# print("Initial Satisfiability %f" % (sat_level))
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Training LTN ******')
-sat_level = ltnw.train(max_epochs=max_epochs,sat_level_epsilon=.001, track_values=True, device=device)#, early_stop_level=0.00001)
+
+pbar = tqdm.tqdm(total=max_epochs)
+f = open('axioms_values.csv', 'w')
+dictw = csv.DictWriter(f, ltnw.AXIOMS.keys())
+dictw.writeheader()
+for ep in range(max_epochs):
+
+    for b, sc_batch in enumerate(scenes_subset):
+        full_obj_set = [] #list of all objects from all scenes
+        full_obj_feat = [] #list of all features per object
+        right_pairs = [] #list of index pairs [o1,o2] where o2 is to the right of o1 
+        behind_pairs = [] #list of index pairs [o1,o2] where o2 is behind of o1 
+        front_pairs = [] #list of index pairs [o1,o2] where o2 is to the in front of o1 
+        left_pairs = [] #list of index pairs [o1,o2] where o2 is to the left of o1 
+
+        for idx, scene in enumerate(sc_batch):
+
+            # Number of objects parsed from data (used for indexing of object relations)
+            num_obj = len(full_obj_set) 
+
+            # build set of objects in an image (image 0)
+            #scene_obj_set = []
+            scene_obj_feat = []
+            for idx, o in enumerate(scene['objects']):
+                color_vec = [(o['color'] == c)*1 for c in obj_colors]
+                size_vec = [(o['size'] == s)*1 for s in obj_sizes]
+                shape_vec = [(o['shape'] == sh)*1 for sh in obj_shapes]
+                material_vec =[(o['material'] == m)*1 for m in obj_materials]
+                #pixel_vec = [o['pixel_coords'][0]/480, o['pixel_coords'][1]/320, o['pixel_coords'][0]/32]
+                # object features (used to categories and collect groups of same-featured objects)
+                scene_obj_feat.append(color_vec + size_vec + shape_vec + material_vec)
+                full_obj_feat.append(color_vec + size_vec + shape_vec + material_vec)
+                # set of objects in current scene, and of all objects witnessed
+                #scene_obj_set.append(perception.get_vector(scene,idx))
+                full_obj_set.append(perception.get_vector(scene,idx))
+            #print('All objects: ', obj_set)
+
+            # right relationship for each object in an image (image 0)
+            for i in range(len(scene_obj_feat)):
+                for j in range(len(scene['relationships']['right'][i])):
+                    r_pair = [num_obj+i, num_obj+scene['relationships']['right'][i][j]]    
+                    right_pairs.append(r_pair)
+            #print('Right pairs: ', right_pairs)
+
+            # behind relationship for each object in an image (image 0)   
+            for i in range(len(scene_obj_feat)):
+                for j in range(len(scene['relationships']['behind'][i])):
+                    b_pair = [num_obj+i, num_obj+scene['relationships']['behind'][i][j]]
+                    behind_pairs.append(b_pair)
+            #print('Behind pairs: ', behind_pairs)
+
+            # front relationship for each object in an image (image 0)   
+            for i in range(len(scene_obj_feat)):
+                for j in range(len(scene['relationships']['front'][i])):
+                    f_pair = [num_obj+i, num_obj+scene['relationships']['front'][i][j]]
+                    front_pairs.append(f_pair)
+            #print('Front pairs:', front_pairs)
+
+            # left relationship for each object in an image (image 0)
+            for i in range(len(scene_obj_feat)):
+                for j in range(len(scene['relationships']['left'][i])):
+                    l_pair = [num_obj+i, num_obj+scene['relationships']['left'][i][j]]
+                    left_pairs.append(l_pair)
+            #print('Left pairs:', left_pairs)
+
+        ### Create Subsets of object attributes
+        obj_attr, not_obj_attr = {}, {}
+        for i, feat in enumerate(obj_feat):
+            obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==1]
+            not_obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==0]
+            # Make sure to have balanced data for each attribute (is and isnot) 
+            # by only taking maximum num of negative attribute samples equal to num of positive samples
+            #not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
+
+        ltnw.variable('?obj',torch.stack(full_obj_set), verbose=False)
+        ltnw.variable('?obj_2',torch.stack(full_obj_set), verbose=False)
+        for i, feat in enumerate(obj_feat):
+            if len(obj_attr[feat]) > 0: 
+                ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]), verbose=False)
+                ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+            if len(not_obj_attr[feat]) > 0: 
+                ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]), verbose=False)
+                ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')   
+        ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]), verbose=False)
+        ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]), verbose=False)
+        ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]), verbose=False)
+        ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]), verbose=False)
+
+        if ep+b == 0: # Initialise LTN at very beginning of training
+            print('******* Initialising LTN ******')
+            sat_level = ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, device=device, learn_rate=learning_rate)
+            print("Initial Satisfiability %f" % (sat_level))
+        sat_level = ltnw.train(max_epochs=1,sat_level_epsilon=.001, track_values=False, device=device, show_progress=False)#, early_stop_level=0.00001)
+
+    dictw.writerow({key:value.cpu().detach().numpy()[0] for (key, value) in ltnw.AXIOMS.items()})
+
+    pbar.set_description("Current Satisfiability %f" % (sat_level))
+    pbar.update(1)
 
 ####################
 ### Test the LTN ###

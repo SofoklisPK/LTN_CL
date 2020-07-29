@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchvision
 import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -8,6 +9,7 @@ import json
 import random
 import pycocotools.mask as mask
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # num_scenes = 5
 
@@ -33,6 +35,7 @@ resnet.layer4, resnet.fc = nn.Identity(), nn.Identity()
 
 # Set model to evaluation mode
 resnet.eval()
+resnet.to(device)
 
 scaler = transforms.Resize((224, 224))
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -48,13 +51,16 @@ def get_vector(scene, idx):
     img = Image.open(image_name).convert(mode='RGB')
     obj = img.crop((obj_bbox[0], obj_bbox[1], obj_bbox[0]+obj_bbox[2], obj_bbox[1]+obj_bbox[3]))
     # 2. Create a PyTorch Variable with the transformed image
-    img_var = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0)) # assign it to a variable
-    obj_var = Variable(normalize(to_tensor(scaler(obj))).unsqueeze(0)) # assign it to a variable
+    img_var = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0)).to(device) # assign it to a variable
+    obj_var = Variable(normalize(to_tensor(scaler(obj))).unsqueeze(0)).to(device) # assign it to a variable
     img_features_var = resnet(img_var) # get the output from the last hidden layer of the pretrained resnet
     obj_features_var = resnet(obj_var) # get the output from the last hidden layer of the pretrained resnet
     features = torch.cat([img_features_var.data.flatten(),obj_features_var.data.flatten()]) # get the tensor out of the variable
-    return features
+    return features.cpu().detach()
 
 
 # feat_vect = get_vector(scenes_json[0], 0)
 # print(feat_vect)
+
+#myPerception = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+#print(myPerception)
