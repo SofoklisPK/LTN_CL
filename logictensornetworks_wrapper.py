@@ -15,6 +15,7 @@ import logictensornetworks as ltn
 import logging
 import tqdm
 import csv
+import perception
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #print("device = ", device)
@@ -323,7 +324,8 @@ def initialize_knowledgebase(optimizer=None,
                              track_sat_levels=10,
                              max_trials=100,
                              learn_rate=0.01,
-                             device=torch.device('cpu')):
+                             device=torch.device('cpu'),
+                             perception_mode='val'):
     global OPTIMIZER, KNOWLEDGEBASE, PARAMETERS, PREDICATES, FUNCTIONS, FORMULA_AGGREGATOR, AXIOMS
 
     FORMULA_AGGREGATOR = formula_aggregator
@@ -336,11 +338,13 @@ def initialize_knowledgebase(optimizer=None,
 
     # if there are variables to optimize
     if KNOWLEDGEBASE is not None:
-        for p in PREDICATES.values(): p.to(device)
+        #for p in PREDICATES.values(): p.to(device)
         for pred in PREDICATES.values():
             PARAMETERS += list(pred.parameters())
         for func in FUNCTIONS.values():
             PARAMETERS += list(func.parameters())
+        if perception_mode == 'train':
+            PARAMETERS += list(perception.resnet.parameters())
         logging.getLogger(__name__).info("Initializing optimizer")
         for i in range(max_trials):
             # Reset all parameters
@@ -379,7 +383,7 @@ def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None,
         dictw.writeheader()
     if KNOWLEDGEBASE is None:
         raise Exception("KNOWLEDGEBASE not initialized. Please run initialize_knowledgebase first.")
-    for p in PREDICATES.values(): p.to(device)
+    #for p in PREDICATES.values(): p.to(device)
     for i in range(max_epochs):
         OPTIMIZER.zero_grad()
         for a in AXIOMS.keys():
