@@ -12,10 +12,10 @@ import dataset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-total_images = 50
-scene_group_size = 1
+total_images = 100
+scene_group_size = 5
 max_epochs = 100
-learning_rate = 5e-5
+learning_rate = 1e-3
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
@@ -31,7 +31,7 @@ start_time = time.time()
 s_time = time.time()
 print('******* Creating CLEVR Grounded dataset ******')
 
-clevr_dataset = dataset.CLEVRGroundingDataset(total_imgs=50, group_size=1, csv_file='scenes_train.json')
+clevr_dataset = dataset.CLEVRGroundingDataset(total_imgs=total_images, group_size=scene_group_size, csv_file='scenes_train.json')
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)

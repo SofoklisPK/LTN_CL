@@ -369,7 +369,7 @@ def initialize_knowledgebase(optimizer=None,
             if track_sat_levels is not None and i % track_sat_levels == 0:
                 logging.getLogger(__name__).info("INITIALIZE %s sat level -----> %s" % (i, true_sat_level))
         logging.getLogger(__name__).info("INITIALIZED with sat level = %s" % (true_sat_level))
-        return true_sat_level
+        return true_sat_level.cpu().detach()
 
 
 def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None, 
@@ -410,7 +410,7 @@ def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None,
         if show_progress : 
             pbar.set_description("Current Satisfiability %f" % (true_sat_level))
             pbar.update(1)
-    return true_sat_level
+    return true_sat_level.cpu().detach()
 
 
 def ask(term_or_formula):
