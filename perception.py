@@ -34,7 +34,7 @@ resnet.layer4, resnet.fc = nn.Identity(), nn.Identity()
 #    p.requires_grad = False
 
 # Set model to evaluation mode
-resnet.eval()
+#resnet.eval()
 resnet.to(device)
 
 scaler = transforms.Resize((224, 224))
@@ -42,7 +42,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 to_tensor = transforms.ToTensor()
 
-def get_vector(scene, idx):
+def get_vector(scene, idx, mode='val'):
     image_name = 'images/' + scene['split'] + '/' + scene['image_filename']
     #obj = scene['objects'][idx]
     obj_mask = scene['objects_detection'][idx]['mask']
@@ -53,10 +53,18 @@ def get_vector(scene, idx):
     # 2. Create a PyTorch Variable with the transformed image
     img_var = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0)).to(device) # assign it to a variable
     obj_var = Variable(normalize(to_tensor(scaler(obj))).unsqueeze(0)).to(device) # assign it to a variable
-    img_features_var = resnet(img_var) # get the output from the last hidden layer of the pretrained resnet
-    obj_features_var = resnet(obj_var) # get the output from the last hidden layer of the pretrained resnet
-    features = torch.cat([img_features_var.data.flatten(),obj_features_var.data.flatten()]) # get the tensor out of the variable
-    return features.cpu().detach()
+    if mode == 'train' :
+        resnet.train()
+        img_features_var = resnet(img_var) # get the output from the last hidden layer of the pretrained resnet
+        obj_features_var = resnet(obj_var) # get the output from the last hidden layer of the pretrained resnet
+    else: 
+        resnet.eval()
+        with torch.no_grad():
+            img_features_var = resnet(img_var) # get the output from the last hidden layer of the pretrained resnet
+            obj_features_var = resnet(obj_var) # get the output from the last hidden layer of the pretrained resnet
+    features = torch.cat((torch.flatten(img_features_var),torch.flatten(obj_features_var))) # get the tensor out of the variable
+    if mode == 'train': return features
+    else: return features.cpu().detach()
 
 
 # feat_vect = get_vector(scenes_json[0], 0)

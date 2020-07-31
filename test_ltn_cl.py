@@ -61,7 +61,7 @@ print('******* Predicates for Object Features ******')
 
 # Object Features
 for feat in obj_feat:
-    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features)
+    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, device=device)
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -69,10 +69,10 @@ start_time = time.time()
 print('******* Predicates for Spacial Relations ******')
 
 # Spacial Relations
-ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features) # Right(?o1,?o2) : o2 is on the right of o1
-ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features) # Behind(?o1,?o2) : o2 is behind o1
-ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features) # Front(?o1,?o2) : o2 is in front of o1
-ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features) # Left(?o1,?o2) : o2 is on the left of o1
+ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, device=device) # Right(?o1,?o2) : o2 is on the right of o1
+ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, device=device) # Behind(?o1,?o2) : o2 is behind o1
+ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, device=device) # Front(?o1,?o2) : o2 is in front of o1
+ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, device=device) # Left(?o1,?o2) : o2 is on the left of o1
 
 ####################
 ### Load the LTN ###
@@ -216,7 +216,7 @@ for scenes_subset in split_scenes:
             full_obj_feat.append(color_vec + size_vec + shape_vec + material_vec)
             # set of objects in current scene, and of all objects witnessed
             #scene_obj_set.append(perception.get_vector(scene,idx))
-            full_obj_set.append(perception.get_vector(scene,idx))
+            full_obj_set.append(perception.get_vector(scene,idx, mode= 'val'))
         #print('All objects: ', obj_set)
 
         # right relationship for each object in an image (image 0)

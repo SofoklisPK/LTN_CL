@@ -48,6 +48,7 @@ scenes_subset = random.sample(split_scenes, num_batches)
 #    f.close()
 #print('first scene:\n',scenes_json[0])
 #print('##########\n##########\nfirst question:\n',questions_json[0])
+perception_mode = 'val' # potentially set up to backprop to perception module
 
 #######################
 ### Parse JSON data ###
@@ -364,7 +365,7 @@ for ep in range(max_epochs):
 
         if ep+b == 0: # Initialise LTN at very beginning of training
             print('******* Initialising LTN ******')
-            sat_level = ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, device=device, learn_rate=learning_rate)
+            sat_level = ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, device=device, learn_rate=learning_rate, perception_mode=perception_mode)
             print("Initial Satisfiability %f" % (sat_level))
         sat_level = ltnw.train(max_epochs=1,sat_level_epsilon=.001, track_values=False, device=device, show_progress=False)#, early_stop_level=0.00001)
 
