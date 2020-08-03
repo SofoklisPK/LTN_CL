@@ -19,6 +19,10 @@ class CLEVRGroundingDataset(Dataset):
         self.num_groups=int(total_imgs/group_size)
         if total_imgs%group_size != 0: logging.getLogger(__name__).warning("group size error, will only use %f images" % (self.num_groups*group_size))
 
+        # remove scenes with missing masks
+        scenes_json = [sc for sc in scenes_json if len(sc['objects']) == len(sc['objects_detection'])]
+
+
         random.seed(7)
         split_scenes = list(grouper(group_size, scenes_json))
         scenes_subset = random.sample(split_scenes, self.num_groups)
@@ -73,7 +77,7 @@ class CLEVRGroundingDataset(Dataset):
                 not_obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==0]
                 # Make sure to have balanced data for each attribute (is and isnot) 
                 # by only taking maximum num of negative attribute samples equal to num of positive samples
-                #not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
+                not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
             
             self.obj_data.append(full_obj_set)
             self.obj_attr.append(obj_attr)
@@ -84,7 +88,7 @@ class CLEVRGroundingDataset(Dataset):
         return len(self.obj_data)
 
     def __getitem__(self,idx):
-
+        # TODO: collate list of dictionaries into dictionary of lists for when idx is a range
         return self.obj_data[idx], self.obj_attr[idx], self.obj_not_attr[idx], self.pairs[idx]
 
 

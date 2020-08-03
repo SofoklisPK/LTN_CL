@@ -13,14 +13,15 @@ import dataset
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 total_images = 100
-scene_group_size = 5
-max_epochs = 100
-learning_rate = 1e-3
+scene_group_size = 10
+max_epochs = 500    
+learning_rate = 1e-4
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
 ltnw.set_layers(3)
+ltnw.set_p_value(-4)
 
 perception_mode = 'val' # potentially set up to backprop to perception module
 
@@ -75,7 +76,7 @@ for c in obj_colors:
         if not_c == c: is_color = c.capitalize() + '(?obj)'
         if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
     ltnw.axiom('forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1])
-    ltnw.axiom('forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color)
+    #ltnw.axiom('forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color)
 ## objects can only be one size
 for s in obj_sizes:
     is_size = ''
@@ -84,7 +85,7 @@ for s in obj_sizes:
         if not_s == s: is_size = s.capitalize() + '(?obj)'
         if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
     ltnw.axiom('forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1])
-    ltnw.axiom('forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size)
+    #ltnw.axiom('forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size)
 ## objects can only be one shape
 for sh in obj_shapes:
     is_shape = ''
@@ -93,7 +94,7 @@ for sh in obj_shapes:
         if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
         if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
     ltnw.axiom('forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1])
-    ltnw.axiom('forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape)
+    #ltnw.axiom('forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape)
 ## objects can only be one material
 for m in obj_materials:
     is_material = ''
@@ -102,7 +103,7 @@ for m in obj_materials:
         if not_m == m: is_material = m.capitalize() + '(?obj)'
         if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
     ltnw.axiom('forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1])
-    ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
+    #ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
 
 # Spacial Relations
 ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, device=device) # Right(?o1,?o2) : o2 is on the right of o1
@@ -123,27 +124,27 @@ ltnw.axiom('forall ?left_pair : Left(?left_pair)')
 ltnw.axiom('forall ?right_pair : ~Left(?right_pair)')
 
 # # Implicit Axioms about spacial relations
-ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
-ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
-ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
+#ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
 #ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
@@ -191,19 +192,6 @@ for ep in range(max_epochs):
 
     pbar.set_description("Current Satisfiability %f" % (sat_level))
     pbar.update(1)
-
-####################
-### Test the LTN ###
-####################
-
-# ask queries about objects in image_val_00000.png
-# print('\nIs object0 (large brown cylinder) in front of object3 (large purple sphere)? ', ltnw.ask('Front(object3,object0)'))
-# print('Is object3 (large purple sphere) not to the left of object2 (small green cylinder)? ', ltnw.ask('~Left(object2,object3)'))
-# print('Is object2 (small green cylinder) to the left of object1 (large gray cube)? ', ltnw.ask('Left(object1,object2)'))
-# print('Is object4 (small gray cube) to the right of object0 (large brown cylinder)? ', ltnw.ask('Right(object0, object4)'))
-# print('Is object2 (small green cylinder) small? ', ltnw.ask('Small(object2)'))
-# print('Is object1 (large gray cube) a sphere? ', ltnw.ask('Sphere(object1)'))
-#print('Is there an object to the right of object1 (large gray cube)?', ltnw.ask('exists ?obj: Right(object1,?obj)'))
 
 ####################
 ### Save the LTN ###

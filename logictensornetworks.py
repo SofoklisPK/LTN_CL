@@ -8,6 +8,7 @@ BIAS_factor = 0.0
 BIAS = 0.0
 LAYERS=1
 eps = 1e-10
+p_value = -2
 
 F_And = None
 F_Or = None
@@ -17,6 +18,9 @@ F_Not = None
 F_Forall = None
 F_Exists = None
 
+def set_p_value(p):
+    global p_value
+    p_value = p
 
 def set_tnorm(tnorm):
     assert tnorm in ['min','luk','prod','mean','new','']
@@ -141,7 +145,7 @@ def multi_axes_op(op, input, axes, keepdim=False):
 
 def set_universal_aggreg(aggreg):
     assert aggreg in ['hmean','min','mean','pmeaner']
-    global F_Forall
+    global F_Forall, p_value
     if aggreg == "hmean":
         def F_Forall(axis,wff):
             # return 1 / torch.mean(1/(wff+1e-10), dim=axis)
@@ -159,7 +163,7 @@ def set_universal_aggreg(aggreg):
 
     if aggreg == "pmeaner":
         def F_Forall(axis,wff):
-            p = -3
+            p = p_value
             # hmean: 1 / tf.reduce_mean(1 / ((1 - eps) * xs + eps), axis=axis, keepdims=keepdims)
             # pmean: tf.pow(eps+(1-eps)*tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
             # pmean<1: tf.pow(tf.reduce_mean(tf.pow((1-eps)*xs+eps,p),axis=axis,keepdims=keepdims),1/p)
@@ -172,7 +176,7 @@ def set_universal_aggreg(aggreg):
 
 def set_existential_aggregator(aggreg):
     assert aggreg in ['max','pmean']
-    global F_Exists
+    global F_Exists, p_value
     if aggreg == "max":
         def F_Exists(axis, wff):
             # return torch.max(wff, dim=axis)[0]
@@ -180,7 +184,7 @@ def set_existential_aggregator(aggreg):
 
     if aggreg == "pmean":
         def F_Exists(axis,wff):
-            p = -3
+            p = p_value
             # if p >= 1:
             #     res = (eps+(1-eps)*multi_axes_op('mean', wff.pow(p), axes=axis)).pow(1/p)
             # else:
@@ -191,6 +195,7 @@ def set_existential_aggregator(aggreg):
 set_tnorm('new')
 set_universal_aggreg("pmeaner")
 set_existential_aggregator("pmean")
+set_p_value(-2)
 
 
 def And(*wffs):

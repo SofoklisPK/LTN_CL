@@ -25,7 +25,8 @@ CONFIGURATION = {"max_nr_iterations": 1000,
                 "tnorm": 'new',
                 "universal_aggregator": 'pmeaner',
                 "existential_aggregator": 'pmean',
-                "layers": 1}
+                "layers": 1,
+                'p_value': -2}
 
 CONSTANTS = {}
 PREDICATES = {}
@@ -35,6 +36,10 @@ TERMS = {}
 FORMULAS = {}
 AXIOMS = {}
 PARAMETERS = []
+
+def set_p_value(p):
+    CONFIGURATION['p_value'] = p
+    ltn.set_p_value(p)
 
 
 def set_tnorm(tnorm):
@@ -476,5 +481,6 @@ def load_ltn(filename='ltn_library.pt', device=torch.device('cpu')):
     set_universal_aggreg(CONFIGURATION.get('universal_aggregator'))
     set_existential_aggregator(CONFIGURATION.get('existential_aggregator'))
     set_layers(CONFIGURATION.get('layers'))
+    set_p_value(CONFIGURATION.get('p_value'))
     
     

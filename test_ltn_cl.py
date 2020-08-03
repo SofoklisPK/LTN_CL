@@ -254,7 +254,7 @@ for scenes_subset in split_scenes:
         not_obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==0]
         # Make sure to have balanced data for each attribute (is and ~is) 
         # by only taking maximum num of negative attribute samples equal to num of positive samples
-        not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
+        #not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
 
     ##################
     ### Set Up LTN ###
@@ -282,8 +282,9 @@ for scenes_subset in split_scenes:
     ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]), verbose=False)
 
     ## Test the axioms on the freshly declared variables
-    for a in axioms.keys():
-        axioms[a].append(ltnw.ask(a))
+    with torch.no_grad():
+        for a in axioms.keys():
+            axioms[a].append(ltnw.ask(a))
 
     axioms_mean = {k:sum(axioms[k])/len(axioms[k]) for k in axioms.keys()}
     all_axioms_mean = np.array([axioms_mean[k] for k in axioms_mean.keys()]).sum()/len(axioms_mean)
