@@ -11,6 +11,7 @@ import itertools as IT
 import dataset
 import math
 
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 

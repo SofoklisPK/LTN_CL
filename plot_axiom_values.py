@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 import math
 
-
 pd.options.plotting.backend = 'plotly'
 
 with open('axioms_values.csv', 'r') as f:
@@ -41,6 +40,7 @@ fig.show()
 # plt.show()
 
 # df[['forall ?obj: Yellow(?obj) -> ~Gray(?obj) &~Blue(?obj) &~Brown(?obj) &~Red(?obj) &~Green(?obj) &~Purple(?obj) &~Cyan(?obj) ','forall ?obj: Small(?obj) -> ~Large(?obj) ','forall ?obj: Cube(?obj) -> ~Sphere(?obj) &~Cylinder(?obj) ','forall ?obj: Rubber(?obj) -> ~Metal(?obj) ']].plot()
+
 # plt.show()
 
 # df[['forall ?right_pair : Right(?right_pair)','forall ?left_pair : ~Right(?left_pair)', 'forall ?front_pair : Front(?front_pair)','forall ?behind_pair : ~Front(?behind_pair)']].plot()
