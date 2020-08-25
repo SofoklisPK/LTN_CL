@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import csv
 import pandas as pd
 import plotly.express as px
-
+import math
 
 pd.options.plotting.backend = 'plotly'
 
@@ -10,19 +10,15 @@ with open('axioms_values.csv', 'r') as f:
     df =  pd.read_csv(f)
 
 df['sat_level'] = df.mean(numeric_only=True, axis=1)
-#fig = px.line(df['sat_level'])
-#fig.show()
-#df['sat_level'].plot()
-#plt.show()
+#df['p_value'] = math.log10(10*df['sat_level'].data)
 
 fig = px.line(df)
-#fig.update_layout(showlegend=False)
-#fig.update_layout(legend_orientation="v")
 fig.update_layout(legend = {'x': -0.7, 'y':0, 'font':{'size':6}})
 
 fig.show()
-#fig.write_html("path/to/file.html")
 
+
+#fig.write_html("path/to/file.html")
 
 #fig = px.line(df[['forall ?is_gray : Gray(?is_gray)','forall ?isnot_gray : ~Gray(?isnot_gray)']])
 #fig.show()
@@ -44,8 +40,8 @@ fig.show()
 # plt.show()
 
 # df[['forall ?obj: Yellow(?obj) -> ~Gray(?obj) &~Blue(?obj) &~Brown(?obj) &~Red(?obj) &~Green(?obj) &~Purple(?obj) &~Cyan(?obj) ','forall ?obj: Small(?obj) -> ~Large(?obj) ','forall ?obj: Cube(?obj) -> ~Sphere(?obj) &~Cylinder(?obj) ','forall ?obj: Rubber(?obj) -> ~Metal(?obj) ']].plot()
+
 # plt.show()
 
 # df[['forall ?right_pair : Right(?right_pair)','forall ?left_pair : ~Right(?left_pair)', 'forall ?front_pair : Front(?front_pair)','forall ?behind_pair : ~Front(?behind_pair)']].plot()
 # plt.show()
-

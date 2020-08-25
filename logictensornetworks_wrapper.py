@@ -15,11 +15,18 @@ import logictensornetworks as ltn
 import logging
 import tqdm
 import csv
+import perception
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #print("device = ", device)
 
-CONFIGURATION = {"max_nr_iterations": 1000, "error_on_redeclare": False}
+CONFIGURATION = {"max_nr_iterations": 1000,
+                "error_on_redeclare": False,
+                "tnorm": 'new',
+                "universal_aggregator": 'pmeaner',
+                "existential_aggregator": 'pmean',
+                "layers": 1,
+                'p_value': -2}
 
 CONSTANTS = {}
 PREDICATES = {}
@@ -30,20 +37,30 @@ FORMULAS = {}
 AXIOMS = {}
 PARAMETERS = []
 
+def set_p_value(p):
+    """ greater the p-value, more like min(),
+        smaller the p-value, more like max() """
+    CONFIGURATION['p_value'] = p
+    ltn.set_p_value(p)
+
 
 def set_tnorm(tnorm):
+    CONFIGURATION['tnorm'] = tnorm
     ltn.set_tnorm(tnorm)
 
 
 def set_universal_aggreg(aggr):
+    CONFIGURATION['universal_aggregator'] = aggr
     ltn.set_universal_aggreg(aggr)
 
 
 def set_existential_aggregator(aggr):
+    CONFIGURATION['existential_aggregator'] = aggr
     ltn.set_existential_aggregator(aggr)
 
 
 def set_layers(layers):
+    CONFIGURATION['layers'] = layers
     ltn.LAYERS = layers
 
 
@@ -69,7 +86,7 @@ def _variable_label(label):
     return label
 
 
-def variable(label,*args,**kwargs):
+def variable(label, *args,**kwargs):
     label=_variable_label(label)
     if label in VARIABLES and args == () and kwargs == {}:
         return VARIABLES[label]
@@ -77,7 +94,7 @@ def variable(label,*args,**kwargs):
         logging.getLogger(__name__).error("Attempt at redeclaring existing variable %s" % label)
         raise Exception("Attempt at redeclaring existing variable %s" % label)
     else:
-        if label in VARIABLES:
+        if kwargs.pop('verbose',True) and label in VARIABLES:
             logging.getLogger(__name__).warning("Redeclaring existing variable %s" % label)
         VARIABLES[label] = ltn.variable(label,*args,**kwargs)
         return VARIABLES[label]
@@ -313,7 +330,9 @@ def initialize_knowledgebase(optimizer=None,
                              initial_sat_level_threshold=1.0,
                              track_sat_levels=10,
                              max_trials=100,
-                             learn_rate=0.01):
+                             learn_rate=0.01,
+                             device=torch.device('cpu'),
+                             perception_mode='val'):
     global OPTIMIZER, KNOWLEDGEBASE, PARAMETERS, PREDICATES, FUNCTIONS, FORMULA_AGGREGATOR, AXIOMS
 
     FORMULA_AGGREGATOR = formula_aggregator
@@ -326,10 +345,13 @@ def initialize_knowledgebase(optimizer=None,
 
     # if there are variables to optimize
     if KNOWLEDGEBASE is not None:
+        #for p in PREDICATES.values(): p.to(device)
         for pred in PREDICATES.values():
             PARAMETERS += list(pred.parameters())
         for func in FUNCTIONS.values():
             PARAMETERS += list(func.parameters())
+        if perception_mode == 'train':
+            PARAMETERS += list(perception.resnet.parameters())
         logging.getLogger(__name__).info("Initializing optimizer")
         for i in range(max_trials):
             # Reset all parameters
@@ -354,12 +376,13 @@ def initialize_knowledgebase(optimizer=None,
             if track_sat_levels is not None and i % track_sat_levels == 0:
                 logging.getLogger(__name__).info("INITIALIZE %s sat level -----> %s" % (i, true_sat_level))
         logging.getLogger(__name__).info("INITIALIZED with sat level = %s" % (true_sat_level))
+        return true_sat_level.cpu().detach()
 
 
-def train(max_epochs=10000,
-          sat_level_epsilon=.0001, early_stop_level = None, track_values = False):
-    global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS
-    pbar = tqdm.tqdm(total=max_epochs)
+def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None, 
+                track_values = False, device=torch.device('cpu'), show_progress=True):
+    global OPTIMIZER, KNOWLEDGEBASE, FORMULA_AGGREGATOR, AXIOMS, PREDICATES
+    if show_progress : pbar = tqdm.tqdm(total=max_epochs)
     low_diff_cnt, true_sat_level = 0.0, 1.0
     if track_values:    
         f = open('axioms_values.csv', 'w')
@@ -367,19 +390,20 @@ def train(max_epochs=10000,
         dictw.writeheader()
     if KNOWLEDGEBASE is None:
         raise Exception("KNOWLEDGEBASE not initialized. Please run initialize_knowledgebase first.")
+    #for p in PREDICATES.values(): p.to(device)
     for i in range(max_epochs):
         OPTIMIZER.zero_grad()
         for a in AXIOMS.keys():
             axiom(a, True)
         KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
         if track_values: 
-            dictw.writerow({key:value.detach().numpy()[0] for (key, value) in AXIOMS.items()})
+            dictw.writerow({key:value.cpu().detach().numpy()[0] for (key, value) in AXIOMS.items()})
         #to_be_optimized = 1-KNOWLEDGEBASE
         to_be_optimized = torch.mean(torch.cat([(1-x) for x in AXIOMS.values()],dim=0))
         tmp = true_sat_level #
         true_sat_level = KNOWLEDGEBASE
         sat_level_diff = true_sat_level - tmp #
-        if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
+        #if i == 0: print('\nInitial Satisfiability: %f' % (true_sat_level))
         if early_stop_level is not None and sat_level_diff <= early_stop_level: low_diff_cnt += 1  #
         else: low_diff_cnt = 0 #
         if sat_level_epsilon is not None and to_be_optimized <= sat_level_epsilon: 
@@ -390,8 +414,10 @@ def train(max_epochs=10000,
             return to_be_optimized #
         to_be_optimized.backward()
         OPTIMIZER.step()
-        pbar.set_description("Current Satisfiability %f" % (true_sat_level))
-        pbar.update(1)
+        if show_progress : 
+            pbar.set_description("Current Satisfiability %f" % (true_sat_level))
+            pbar.update(1)
+    return true_sat_level.cpu().detach()
 
 
 def ask(term_or_formula):
@@ -408,7 +434,7 @@ def ask(term_or_formula):
         if _t is None:
             raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
         else:
-            return _t.detach().numpy()
+            return _t.cpu().detach().numpy()
 
 
 def save_ltn(filename='ltn_library.pt'):
@@ -427,12 +453,13 @@ def save_ltn(filename='ltn_library.pt'):
     ltn_library = {
         'predicate_state_dicts': pred_dicts,
         'function_state_dicts': func_dicts,
-        'optimizer_state_dict': optim_dict
+        'optimizer_state_dict': optim_dict,
+        'configuration': CONFIGURATION
     }
 
     torch.save(ltn_library, filename)
 
-def load_ltn(filename='ltn_library.pt'):
+def load_ltn(filename='ltn_library.pt', device=torch.device('cpu')):
     global PREDICATES, FUNCTIONS, OPTIMIZER
 
     ltn_library = torch.load(filename)
@@ -440,13 +467,22 @@ def load_ltn(filename='ltn_library.pt'):
     pred_dicts = ltn_library['predicate_state_dicts']
     func_dicts = ltn_library['function_state_dicts']
     optim_dict = ltn_library['optimizer_state_dict']
+    CONFIGURATION = ltn_library['configuration']
 
     # TODO initialize predicates/functions/optimizer first?
     for key in pred_dicts.keys():
         predicate(key)
         PREDICATES[key].load_state_dict(pred_dicts[key])
+        PREDICATES[key].to(device)
     for key in func_dicts.keys():
         FUNCTIONS[key].load_state_dict(func_dicts[key])
+        FUNCTIONS[key].to(device)
     if OPTIMIZER is not None : OPTIMIZER.load_state_dict(optim_dict)
+
+    set_tnorm(CONFIGURATION.get('tnorm'))
+    set_universal_aggreg(CONFIGURATION.get('universal_aggregator'))
+    set_existential_aggregator(CONFIGURATION.get('existential_aggregator'))
+    set_layers(CONFIGURATION.get('layers'))
+    set_p_value(CONFIGURATION.get('p_value'))
     
     
