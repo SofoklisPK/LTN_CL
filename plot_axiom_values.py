@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import csv
 import pandas as pd
 import plotly.express as px
+import math
 
 
 pd.options.plotting.backend = 'plotly'
@@ -10,6 +11,7 @@ with open('axioms_values.csv', 'r') as f:
     df =  pd.read_csv(f)
 
 df['sat_level'] = df.mean(numeric_only=True, axis=1)
+#df['p_value'] = math.log10(10*df['sat_level'].data)
 
 fig = px.line(df)
 fig.update_layout(legend = {'x': -0.7, 'y':0, 'font':{'size':6}})

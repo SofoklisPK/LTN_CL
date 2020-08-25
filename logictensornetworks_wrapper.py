@@ -38,6 +38,8 @@ AXIOMS = {}
 PARAMETERS = []
 
 def set_p_value(p):
+    """ greater the p-value, more like min(),
+        smaller the p-value, more like max() """
     CONFIGURATION['p_value'] = p
     ltn.set_p_value(p)
 

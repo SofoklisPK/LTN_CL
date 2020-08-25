@@ -9,19 +9,22 @@ import tqdm
 import csv
 import itertools as IT
 import dataset
+import math
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-total_images = 100
-scene_group_size = 10
-max_epochs = 500    
-learning_rate = 1e-4
+
+total_images = 30
+scene_group_size = 1
+max_epochs = 2000    
+learning_rate = 2e-5
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
-ltnw.set_layers(3)
-ltnw.set_p_value(-4)
+ltnw.set_layers(10)
+#ltnw.set_p_value(0.5)
+p_factor = 2 # p_value = p_factor*(sat_value**2)
 
 perception_mode = 'val' # potentially set up to backprop to perception module
 
@@ -67,43 +70,43 @@ ltnw.variable('?left_pair', torch.zeros(1,2*num_of_features))
 ltnw.variable('?front_pair', torch.zeros(1,2*num_of_features))
 ltnw.variable('?behind_pair', torch.zeros(1,2*num_of_features))
 
-# Implicit axioms about object features
-## objects can only be one color
-for c in obj_colors:
-    is_color = ''
-    is_not_color = ''
-    for not_c in obj_colors:
-        if not_c == c: is_color = c.capitalize() + '(?obj)'
-        if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
-    ltnw.axiom('forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1])
-    #ltnw.axiom('forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color)
-## objects can only be one size
-for s in obj_sizes:
-    is_size = ''
-    is_not_size = ''
-    for not_s in obj_sizes:
-        if not_s == s: is_size = s.capitalize() + '(?obj)'
-        if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
-    ltnw.axiom('forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1])
-    #ltnw.axiom('forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size)
-## objects can only be one shape
-for sh in obj_shapes:
-    is_shape = ''
-    is_not_shape = ''
-    for not_sh in obj_shapes:
-        if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
-        if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
-    ltnw.axiom('forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1])
-    #ltnw.axiom('forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape)
-## objects can only be one material
-for m in obj_materials:
-    is_material = ''
-    is_not_material = ''
-    for not_m in obj_materials:
-        if not_m == m: is_material = m.capitalize() + '(?obj)'
-        if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
-    ltnw.axiom('forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1])
-    #ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
+# # Implicit axioms about object features
+# ## objects can only be one color
+# for c in obj_colors:
+#     is_color = ''
+#     is_not_color = ''
+#     for not_c in obj_colors:
+#         if not_c == c: is_color = c.capitalize() + '(?obj)'
+#         if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
+#     ltnw.axiom('forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1])
+#     #ltnw.axiom('forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color)
+# ## objects can only be one size
+# for s in obj_sizes:
+#     is_size = ''
+#     is_not_size = ''
+#     for not_s in obj_sizes:
+#         if not_s == s: is_size = s.capitalize() + '(?obj)'
+#         if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
+#     ltnw.axiom('forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1])
+#     #ltnw.axiom('forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size)
+# ## objects can only be one shape
+# for sh in obj_shapes:
+#     is_shape = ''
+#     is_not_shape = ''
+#     for not_sh in obj_shapes:
+#         if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
+#         if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
+#     ltnw.axiom('forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1])
+#     #ltnw.axiom('forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape)
+# ## objects can only be one material
+# for m in obj_materials:
+#     is_material = ''
+#     is_not_material = ''
+#     for not_m in obj_materials:
+#         if not_m == m: is_material = m.capitalize() + '(?obj)'
+#         if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
+#     ltnw.axiom('forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1])
+#     #ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
 
 # Spacial Relations
 ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, device=device) # Right(?o1,?o2) : o2 is on the right of o1
@@ -186,12 +189,15 @@ for ep in range(max_epochs):
             print('******* Initialising LTN ******')
             sat_level = ltnw.initialize_knowledgebase(initial_sat_level_threshold=.5, device=device, learn_rate=learning_rate, perception_mode=perception_mode)
             print("Initial Satisfiability %f" % (sat_level))
+            print("Initial p-Value %f" % (p_factor*(sat_level.item()**2)))
+        ltnw.set_p_value(p_factor*(sat_level.item()**2))
         sat_level = ltnw.train(max_epochs=1,sat_level_epsilon=.001, track_values=False, device=device, show_progress=False)#, early_stop_level=0.00001)
 
     dictw.writerow({key:value.cpu().detach().numpy()[0] for (key, value) in ltnw.AXIOMS.items()})
-
+    if sat_level > 0.997: break
     pbar.set_description("Current Satisfiability %f" % (sat_level))
     pbar.update(1)
+print("Final p-Value %f" % (p_factor*(sat_level.item()**2)))
 
 ####################
 ### Save the LTN ###

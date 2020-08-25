@@ -17,14 +17,14 @@ scene_group_size = 10
 #ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 #ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 #ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
-ltnw.set_layers(3) # TODO: fix loading layer number before trained weights
+ltnw.set_layers(10) # TODO: fix loading layer number before trained weights
 
 ##################################
 ### Import data from csv files ###
 ##################################
 start_time = time.time()
 
-with open('scenes_test.json') as f:
+with open('scenes_val.json') as f:
     scenes_json = json.load(f)
     scenes_json = scenes_json['scenes']
     f.close()
@@ -85,6 +85,8 @@ print('******* Loading saved LTN ******')
 
 #ltnw.initialize_knowledgebase(initial_sat_level_threshold=.99)
 ltnw.load_ltn('ltn_library.pt', device=device)
+
+ltnw.set_p_value(2)
 
 
 ##############################
@@ -177,6 +179,10 @@ axioms['forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)'] = []
 #axioms['forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)'] = []
 #axioms['forall ?obj: ~Left(?obj, ?obj)'] = []
 
+## Check for negations (these should be =0)
+# for i, feat in enumerate(obj_feat):
+#     axioms['forall ?is_'+ feat + ' : ~' + feat.capitalize() + '(?is_'+ feat + ')'] = []
+#     axioms['forall ?isnot_'+ feat + ' : ' + feat.capitalize() + '(?isnot_'+ feat + ')'] = []
 
 #######################################
 ### Parse JSON data and Test Axioms ###
