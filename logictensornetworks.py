@@ -267,7 +267,7 @@ def Exists(vars,wff):
 
 def variable(label, number_of_features_or_feed):
     if isinstance(number_of_features_or_feed, torch.Tensor):
-        result = number_of_features_or_feed.clone()
+        result = number_of_features_or_feed.detach()
     else:
         result = torch.tensor(number_of_features_or_feed)
     result.doms = [label]

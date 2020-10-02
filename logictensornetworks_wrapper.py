@@ -376,7 +376,7 @@ def initialize_knowledgebase(optimizer=None,
             if track_sat_levels is not None and i % track_sat_levels == 0:
                 logging.getLogger(__name__).info("INITIALIZE %s sat level -----> %s" % (i, true_sat_level))
         logging.getLogger(__name__).info("INITIALIZED with sat level = %s" % (true_sat_level))
-        return true_sat_level.cpu().detach()
+        return true_sat_level.detach()
 
 
 def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None, 
@@ -390,7 +390,6 @@ def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None,
         dictw.writeheader()
     if KNOWLEDGEBASE is None:
         raise Exception("KNOWLEDGEBASE not initialized. Please run initialize_knowledgebase first.")
-    #for p in PREDICATES.values(): p.to(device)
     for i in range(max_epochs):
         OPTIMIZER.zero_grad()
         for a in AXIOMS.keys():
@@ -417,7 +416,8 @@ def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None,
         if show_progress : 
             pbar.set_description("Current Satisfiability %f" % (true_sat_level))
             pbar.update(1)
-    return true_sat_level.cpu().detach()
+            
+    return true_sat_level.detach()
 
 
 def ask(term_or_formula):
@@ -434,7 +434,7 @@ def ask(term_or_formula):
         if _t is None:
             raise Exception('Could not parse and build term/formula for "%s"' % term_or_formula)
         else:
-            return _t.cpu().detach().numpy()
+            return _t.detach().cpu().numpy()
 
 
 def save_ltn(filename='ltn_library.pt'):

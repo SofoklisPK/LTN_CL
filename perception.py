@@ -29,40 +29,12 @@ resnet = models.resnet34(pretrained=True)
 resnet.layer4, resnet.fc = nn.Identity(), nn.Identity() ## Output of resnet is avgpool of layer3
 resnet.to(device)
 
-mrcnn = models.detection.maskrcnn_resnet50_fpn(pretrained=True)
-#mrcnn.roi_heads.box_head, mrcnn.roi_heads.mask_head = nn.Identity(), nn.Identity()
-mrcnn.to(device)
-tmpin, tmpout = None,None
-def hook_fn(self, input, output):
-    global tmpin, tmpout
-    tmpin = input
-    tmpout = output
-    print('tmp foo')
-mrcnn.roi_heads.box_head.register_forward_hook(hook_fn)
 
 scaler = transforms.Resize((224, 224))
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 to_tensor = transforms.ToTensor()
 
-def detect_objects(filepath):
-    """ Dectect objects in an image and return set of RoI bounding boxes
-    Args:
-        image_filename
-    Returns:
-        bboxes: list of detected objects bounding boxes in scene (output from RoI Align)
-    """
-
-    img = Image.open(filepath).convert(mode='RGB')
-    t_img = to_tensor(img).to(device)
-
-    mrcnn.eval()
-    ouput = mrcnn([t_img])
-    print('foo')
-
-
-
-#x = detect_objects('CLEVR_val_000000.png')
 
 
 def get_vector(scene, idx, mode='val'):
@@ -96,11 +68,8 @@ def get_vector(scene, idx, mode='val'):
             obj_features_var = resnet(obj_var) # get the output from the last hidden layer of the pretrained resnet
     features = torch.cat((torch.flatten(img_features_var),torch.flatten(obj_features_var))) # get the tensor out of the variable
     if mode == 'train': return features
-    else: return features.cpu().detach()
+    else: return features.detach().cpu()
 
 
 # feat_vect = get_vector(scenes_json[0], 0)
 # print(feat_vect)
-
-#myPerception = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-#print(myPerception)

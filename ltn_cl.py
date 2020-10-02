@@ -192,9 +192,9 @@ for ep in range(max_epochs):
             print("Initial Satisfiability %f" % (sat_level))
             print("Initial p-Value %f" % (p_factor*(sat_level.item()**2)))
         ltnw.set_p_value(p_factor*(sat_level.item()**2))
-        sat_level = ltnw.train(max_epochs=1,sat_level_epsilon=.001, track_values=False, device=device, show_progress=False)#, early_stop_level=0.00001)
+        sat_level = ltnw.train(max_epochs=1,sat_level_epsilon=.01, track_values=False, device=device, show_progress=False)#, early_stop_level=0.00001)
 
-    dictw.writerow({key:value.cpu().detach().numpy()[0] for (key, value) in ltnw.AXIOMS.items()})
+    dictw.writerow({key:value.detach().cpu().numpy()[0] for (key, value) in ltnw.AXIOMS.items()})
     if sat_level > 0.997: break
     pbar.set_description("Current Satisfiability %f" % (sat_level))
     pbar.update(1)

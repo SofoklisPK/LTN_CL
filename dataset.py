@@ -83,6 +83,8 @@ class CLEVRGroundingDataset(Dataset):
             self.obj_attr.append(obj_attr)
             self.obj_not_attr.append(not_obj_attr)
             self.pairs.append(rel_pairs)
+
+        perception.resnet.cpu() #remove resnet model from cuda to free up memory
     
     def __len__(self):
         return len(self.obj_data)
@@ -101,5 +103,5 @@ def grouper(n, iterable):
     iterable = iter(iterable)
     return iter(lambda: list(IT.islice(iterable, n)), [])
 
-my_data = CLEVRGroundingDataset(total_imgs=10, group_size=1, csv_file='scenes_train.json')
-tmp = my_data.__getitem__(1)
+#my_data = CLEVRGroundingDataset(total_imgs=10, group_size=1, csv_file='scenes_train.json')
+#tmp = my_data.__getitem__(1)
