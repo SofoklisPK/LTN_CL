@@ -36,7 +36,7 @@ start_time = time.time()
 s_time = time.time()
 print('******* Creating CLEVR Grounded dataset ******')
 
-clevr_dataset = dataset.CLEVRGroundingDataset(total_imgs=total_images, group_size=scene_group_size, csv_file='scenes_train.json')
+clevr_dataset = dataset.CLEVRGroundingDataset(total_imgs=total_images, group_size=scene_group_size, csv_file='../scenes_train.json')
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -198,7 +198,7 @@ print('******* Training LTN ******')
 
 pbar = tqdm.tqdm(total=max_epochs)
 
-f = open('axioms_values.csv', 'w')
+f = open('../axioms_values.csv', 'w')
 dictw = csv.DictWriter(f, ltnw.AXIOMS.keys())
 dictw.writeheader()
 

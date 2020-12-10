@@ -16,10 +16,10 @@ import logging
 import tqdm
 import csv
 import perception
-# from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import autocast, GradScaler
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# scaler = GradScaler()
+scaler = GradScaler()
 #print("device = ", device)
 
 CONFIGURATION = {"max_nr_iterations": 1000,
@@ -31,7 +31,6 @@ CONFIGURATION = {"max_nr_iterations": 1000,
                 'p_value': -2}
 
 CONSTANTS = {}
-CLASS_CAT = {}
 PREDICATES = {}
 VARIABLES = {}
 FUNCTIONS = {}
@@ -101,35 +100,6 @@ def variable(label, *args,**kwargs):
             logging.getLogger(__name__).warning("Redeclaring existing variable %s" % label)
         VARIABLES[label] = ltn.variable(label,*args,**kwargs)
         return VARIABLES[label]
-
-
-
-
-def class_category(class_label, *args, **kwargs):
-    if class_label in CLASS_CAT and args == () and kwargs == {}:
-        return CLASS_CAT[label]
-    elif class_label in CLASS_CAT and CONFIGURATION.get("error_on_redeclare"):
-        logging.getLogger(__name__).error("Attempt at redeclaring existing predicate %s" % class_label)
-        raise Exception("Attempt at redeclaring existing predicate %s" % class_label)
-    else:
-        if class_label in CLASS_CAT:
-            logging.getLogger(__name__).warning("Redeclaring existing predicate %s" % class_label)
-        CLASS_CAT[class_label] = ltn.Predicate_Category(class_label,*args,**kwargs)
-        return CLASS_CAT[class_label]
-
-def mlp_predicate(label, *args,**kwargs):
-    if label in PREDICATES and args == () and kwargs == {}:
-        return PREDICATES[label]
-    elif label in PREDICATES and CONFIGURATION.get("error_on_redeclare"):
-        logging.getLogger(__name__).error("Attempt at redeclaring existing predicate %s" % label)
-        raise Exception("Attempt at redeclaring existing predicate %s" % label)
-    else:
-        if label in PREDICATES:
-            logging.getLogger(__name__).warning("Redeclaring existing predicate %s" % label)
-        PREDICATES[label] = ltn.MLP_Predicate(label,*args,**kwargs)
-        return PREDICATES[label]
-
-
 
 
 def predicate(label,*args,**kwargs):
@@ -367,15 +337,11 @@ def initialize_knowledgebase(optimizer=None,
                              perception_mode='val'):
     global OPTIMIZER, KNOWLEDGEBASE, PARAMETERS, PREDICATES, FUNCTIONS, FORMULA_AGGREGATOR, AXIOMS
 
-    FORMULA_AGGREGATOR = torch.mean(sum(AXIOMS.values())/len(AXIOMS), dim=0) #formula_aggregator
+    FORMULA_AGGREGATOR = formula_aggregator
 
     if AXIOMS.values():
-        # print(AXIOMS.values())
-        # print('test aggregation')
-        # print(torch.mean(sum(AXIOMS.values())/len(AXIOMS), dim=0))
-        # print('foo')
         logging.getLogger(__name__).info("Initializing knowledgebase")
-        KNOWLEDGEBASE = torch.mean(sum(AXIOMS.values())/len(AXIOMS), dim=0)
+        KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
     else:
         logging.getLogger(__name__).info("No axioms. Skipping knowledgebase aggregation")
 
@@ -396,16 +362,14 @@ def initialize_knowledgebase(optimizer=None,
                 func.reset_parameters()
             PARAMETERS = []
             for pred in PREDICATES.values():
-                if list(pred.parameters()) not in PARAMETERS: 
-                    PARAMETERS += list(pred.parameters())
+                PARAMETERS += list(pred.parameters())
             for func in FUNCTIONS.values():
-                if list(func.parameters()) not in PARAMETERS:
-                    PARAMETERS += list(func.parameters())
+                PARAMETERS += list(func.parameters())
             OPTIMIZER = optimizer(PARAMETERS, lr=learn_rate) if optimizer is not None else torch.optim.Adam(PARAMETERS, lr=learn_rate)
             OPTIMIZER.zero_grad()
             for a in AXIOMS.keys():
                 axiom(a, True)
-            KNOWLEDGEBASE = torch.mean(sum(AXIOMS.values())/len(AXIOMS), dim=0)
+            KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
             to_be_optimized = 1-KNOWLEDGEBASE
             true_sat_level = KNOWLEDGEBASE
             if initial_sat_level_threshold is not None and to_be_optimized < initial_sat_level_threshold:
@@ -433,13 +397,10 @@ def train(max_epochs=10000, sat_level_epsilon=.0001, early_stop_level = None,
         #with autocast():
         for a in AXIOMS.keys():
             axiom(a, True)
-        KNOWLEDGEBASE = torch.mean(sum(AXIOMS.values())/len(AXIOMS), dim=0) # FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
-
+        KNOWLEDGEBASE = FORMULA_AGGREGATOR(tuple(AXIOMS.values()))
         
         #to_be_optimized = 1-KNOWLEDGEBASE
-        #print(AXIOMS.values())
-        to_be_optimized = 1-KNOWLEDGEBASE
-        # to_be_optimized = torch.mean(torch.cat([(1-x) for x in AXIOMS.values()],dim=0))
+        to_be_optimized = torch.mean(torch.cat([(1-x) for x in AXIOMS.values()],dim=0))
 
         if track_values: 
             dictw.writerow({key:value.detach().cpu().numpy()[0] for (key, value) in AXIOMS.items()})
@@ -490,7 +451,7 @@ def ask(term_or_formula):
 
 
 def save_ltn(filename='ltn_library.pt'):
-    global PREDICATES, FUNCTIONS, OPTIMIZER, CLASS_CAT
+    global PREDICATES, FUNCTIONS, OPTIMIZER
 
     pred_dicts = {}
     func_dicts = {}
@@ -523,7 +484,7 @@ def load_ltn(filename='ltn_library.pt', device=torch.device('cpu')):
 
     # TODO initialize predicates/functions/optimizer first?
     for key in pred_dicts.keys():
-        mlp_predicate(key)
+        predicate(key)
         PREDICATES[key].load_state_dict(pred_dicts[key])
         PREDICATES[key].to(device)
     for key in func_dicts.keys():
@@ -536,7 +497,5 @@ def load_ltn(filename='ltn_library.pt', device=torch.device('cpu')):
     set_existential_aggregator(CONFIGURATION.get('existential_aggregator'))
     set_layers(CONFIGURATION.get('layers'))
     set_p_value(CONFIGURATION.get('p_value'))
-
-
     
     

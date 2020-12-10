@@ -10,7 +10,7 @@ import perception
 class CLEVRGroundingDataset(Dataset):
     """CLEVR scenes transformed into grounding representations through a perception module"""
 
-    def __init__(self, total_imgs=10, group_size=1, csv_file='scenes_train.json'):
+    def __init__(self, total_imgs=10, group_size=1, csv_file='../scenes_train.json'):
         with open(csv_file) as f:
             scenes_json = json.load(f)
             scenes_json = scenes_json['scenes']

@@ -10,7 +10,7 @@ import perception
 class CLEVRGroundingDataset(Dataset):
     """CLEVR scenes transformed into grounding representations through a perception module"""
 
-    def __init__(self, total_imgs=10, group_size=1, csv_file='scenes_train.json'):
+    def __init__(self, total_imgs=10, group_size=1, csv_file='../scenes_train.json'):
         with open(csv_file) as f:
             scenes_json = json.load(f)
             scenes_json = scenes_json['scenes']
@@ -77,7 +77,7 @@ class CLEVRGroundingDataset(Dataset):
                 not_obj_attr[feat] = [x for (idx, x) in enumerate(full_obj_set) if full_obj_feat[idx][i]==0]
                 # Make sure to have balanced data for each attribute (is and isnot) 
                 # by only taking maximum num of negative attribute samples equal to num of positive samples
-                #not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
+                not_obj_attr[feat] = random.sample(not_obj_attr[feat],min(len(obj_attr[feat]),len(not_obj_attr[feat])))
             
             self.obj_data.append(full_obj_set)
             self.obj_attr.append(obj_attr)

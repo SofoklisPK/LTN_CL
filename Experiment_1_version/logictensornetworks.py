@@ -8,7 +8,7 @@ BIAS_factor = 0.0
 BIAS = 0.0
 LAYERS=1
 eps = 1e-10
-p_value = -2
+p_value = 2
 
 F_And = None
 F_Or = None
@@ -18,9 +18,6 @@ F_Not = None
 F_Forall = None
 F_Exists = None
 
-def set_p_value(p):
-    global p_value
-    p_value = p
 
 def set_tnorm(tnorm):
     assert tnorm in ['min','luk','prod','mean','new','']
@@ -195,7 +192,6 @@ def set_existential_aggregator(aggreg):
 set_tnorm('new')
 set_universal_aggreg("pmeaner")
 set_existential_aggregator("pmean")
-set_p_value(-2)
 
 
 def And(*wffs):
@@ -245,7 +241,7 @@ def Forall(vars,wff):
         vars = (vars,)
     result_doms = [x for x in wff.doms if x not in [var.doms[0] for var in vars]]
     quantif_axis = [wff.doms.index(var.doms[0]) for var in vars]
-    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.BoolTensor)
+    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.ByteTensor)
     ones = torch.ones((1,)*(len(result_doms)+1), requires_grad=True)
     result = F_Forall(quantif_axis, wff) if not_empty_vars else ones
 
@@ -258,7 +254,7 @@ def Exists(vars,wff):
         vars = (vars,)
     result_doms = [x for x in wff.doms if x not in [var.doms[0] for var in vars]]
     quantif_axis = [wff.doms.index(var.doms[0]) for var in vars]
-    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.BoolTensor)
+    not_empty_vars = torch.prod(torch.tensor([var.numel() for var in vars])).type(torch.ByteTensor)
     zeros = torch.zeros((1,) * (len(result_doms) + 1), requires_grad=True)
     result = F_Exists(quantif_axis, wff) if not_empty_vars else zeros
     result.doms = result_doms
@@ -297,7 +293,7 @@ class Function(nn.Module):
             self.number_of_features = input_shape_spec
         self.output_shape_spec = output_shape_spec
         if fun_definition is None:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])*2-1)
+            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec]-0.5))
             def apply_fun(*args):
                 tensor_args = torch.cat(args, axis=1)
                 self.X = torch.nn.Parameter(torch.cat([torch.ones(tensor_args.size([0], 1))]))
@@ -322,81 +318,16 @@ class Function(nn.Module):
 
     def reset_parameters(self):
         if self.pars:
-            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])*2-1)
+            self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])-0.5)
             self.pars = [self.W]
 
 
-
-
-
-# Predicate Category MUST be created and defined before using predicate in category
-class Predicate_Category(nn.Module):
-    def __init__(self, class_label, number_of_features, names_of_classes, device=torch.device('cpu')):
-        super(Predicate_Category,self).__init__()
-        self.class_label = class_label
-        self.number_of_features = number_of_features
-        self.names_of_classes = names_of_classes #name of class should be same as label of predicate
-        self.class_index = {}
-        self.device = device
-        self.fc1 = torch.nn.Linear(self.number_of_features, 1024).to(self.device)
-        # torch.nn.init.uniform_(self.fc1.weight,a=-1,b=1)
-        self.fc2 = torch.nn.Linear(1024,1024).to(device)
-        self.fc3 = torch.nn.Linear(1024, len(self.names_of_classes)).to(self.device)
-        # torch.nn.init.uniform_(self.fc3.weight,a=-1,b=1)
-        cnt = 0
-        for class_name in names_of_classes:
-            self.class_index[class_name] = cnt
-            cnt += 1
-
-    def forward(self, x):
-        x.to(self.device)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.softmax(self.fc3(x),dim=1)
-        return x.squeeze()
-
-class MLP_Predicate(nn.Module):
-    def __init__(self, label, class_category):
-        super(MLP_Predicate, self).__init__()
-        self.label = label
-        self.class_category = class_category
-
-    def forward(self, *args):
-        crossed_args, list_of_args_in_crossed_args = cross_args(args)
-        output = self.class_category(*list_of_args_in_crossed_args)
-        if len(output.shape) > 1 :
-            result = [o[self.class_category.class_index[self.label]] for o in output]
-        else :
-            result = [output[self.class_category.class_index[self.label]]]
-        result = torch.stack(result)
-            
-        if crossed_args.doms != []:
-            result = torch.reshape(result, list(list(crossed_args.size())[:-1]) + [1])
-        else:
-            result = torch.reshape(result, (1,))
-        # result = torch.stack(result)
-        # if len(result.shape) == 0 : 
-        #     result = torch.tensor([result])
-        result.doms = crossed_args.doms
-        return result
-
-    def reset_parameters(self):
-        self.class_category.fc1 = torch.nn.Linear(self.class_category.number_of_features, 1024).to(self.class_category.device)
-        # torch.nn.init.uniform_(self.class_category.fc1.weight,a=-1,b=1)
-        self.class_category.fc2 = torch.nn.Linear(1024, 1024).to(self.class_category.device)
-        self.class_category.fc3 = torch.nn.Linear(1024, len(self.class_category.names_of_classes)).to(self.class_category.device)
-        # torch.nn.init.uniform_(self.class_category.fc3.weight,a=-1,b=1)
-
-
-        
-
 class Predicate(nn.Module):
-    def __init__(self, label, number_of_features_or_vars, pred_definition=None, device=torch.device('cpu')):
+    def __init__(self, label, number_of_features_or_vars, pred_definition=None, layers=2):
         super(Predicate, self).__init__()
         self.label = label
-        self.layers = LAYERS
+        self.layers = layers
         self.pred_definition = pred_definition
-        self.device = device
         global BIAS
         if type(number_of_features_or_vars) is list:
             self.number_of_features = sum([int(v.shape[1]) for v in number_of_features_or_vars])
@@ -405,19 +336,14 @@ class Predicate(nn.Module):
         else:
             self.number_of_features = number_of_features_or_vars
         if self.pred_definition is None:
-            #self.W = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True))
-            #nn.init.xavier_uniform_(self.W, gain=nn.init.calculate_gain('tanh'))
-            self.W = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True).to(self.device)*2-1)
-            #self.V = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, requires_grad=True))
-            #nn.init.xavier_uniform_(self.V, gain=nn.init.calculate_gain('tanh'))
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True).to(self.device)*2-1)
-            #self.b = torch.nn.Parameter(torch.empty(1, self.layers, requires_grad=True))
-            #nn.init.xavier_uniform_(self.b, gain=nn.init.calculate_gain('tanh'))
-            self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True).to(self.device))
-            self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True).to(self.device))
+            self.W = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
+                                requires_grad=True)*2-1)/math.sqrt(self.number_of_features))
+            self.V = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1)/math.sqrt(self.number_of_features))
+            self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
+            self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             def apply_pred(*args):
-                tensor_args = torch.cat(args, dim=1).to(self.device)
-                X = torch.cat((torch.ones(tensor_args.size()[0], 1,device = self.device), tensor_args), 1)
+                tensor_args = torch.cat(args, dim=1)
+                X = torch.cat((torch.ones(tensor_args.size()[0], 1), tensor_args), 1)
                 XW = torch.matmul(X.unsqueeze(0).repeat(self.layers, 1, 1), self.W)
                 XWX = torch.squeeze(torch.matmul(X.unsqueeze(1), XW.permute(1, 2, 0)), 1)
                 XV = torch.matmul(X, torch.t(self.V))
@@ -444,16 +370,11 @@ class Predicate(nn.Module):
 
     def reset_parameters(self):
         if self.pars:
-            #self.W = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True))
-            #nn.init.xavier_uniform_(self.W, gain=nn.init.calculate_gain('tanh'))
-            self.W = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1, requires_grad=True).to(self.device)*2-1)
-            #self.V = torch.nn.Parameter(torch.empty(self.layers, self.number_of_features + 1, requires_grad=True))
-            #nn.init.xavier_uniform_(self.V, gain=nn.init.calculate_gain('tanh'))
-            self.V = torch.nn.Parameter(torch.rand(self.layers, self.number_of_features + 1, requires_grad=True).to(self.device)*2-1)
-            #self.b = torch.nn.Parameter(torch.empty(1, self.layers, requires_grad=True))
-            #nn.init.xavier_uniform_(self.b, gain=nn.init.calculate_gain('tanh'))
-            self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True).to(self.device))
-            self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True).to(self.device))
+            self.W = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, self.number_of_features + 1,
+                                requires_grad=True)*2-1)/math.sqrt(self.number_of_features))
+            self.V = torch.nn.Parameter((torch.rand(self.layers, self.number_of_features + 1, requires_grad=True)*2-1)/math.sqrt(self.number_of_features))
+            self.b = torch.nn.Parameter(torch.ones(1, self.layers, requires_grad=True))
+            self.u = torch.nn.Parameter(torch.ones(self.layers, 1, requires_grad=True))
             self.pars = [self.W, self.V, self.b, self.u]
 
 

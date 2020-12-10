@@ -17,14 +17,14 @@ scene_group_size = 10
 #ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 #ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 #ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
-ltnw.set_layers(3) # TODO: fix loading layer number before trained weights
+ltnw.set_layers(12) # TODO: fix loading layer number before trained weights
 
 ##################################
 ### Import data from csv files ###
 ##################################
 start_time = time.time()
 
-with open('scenes_val.json') as f:
+with open('../scenes_val.json') as f:
     scenes_json = json.load(f)
     scenes_json = scenes_json['scenes']
     f.close()
@@ -59,30 +59,9 @@ print('Time to complete : ', time_diff)
 start_time = time.time() 
 print('******* Predicates for Object Features ******')
 
-# define class categories of attributes (MLP structure)
-cat_colors = ['Gray', 'Blue', 'Brown', 'Yellow', 'Red', 'Green', 'Purple', 'Cyan']
-Category_Color = ltnw.class_category(class_label='Color', number_of_features=num_of_features, names_of_classes=cat_colors,device=device)
-cat_sizes = ['Small', 'Large']
-Category_Size = ltnw.class_category(class_label='Size', number_of_features=num_of_features, names_of_classes=cat_sizes,device=device)
-cat_shapes = ['Cube', 'Sphere', 'Cylinder']
-Category_Shape = ltnw.class_category(class_label='Shape', number_of_features=num_of_features, names_of_classes=cat_shapes,device=device)
-cat_materials = ['Rubber', 'Metal']
-Category_Material = ltnw.class_category(class_label='Material', number_of_features=num_of_features, names_of_classes=cat_materials,device=device)
-cat_horizontal = ['Right', 'Left']
-Category_Horizontal = ltnw.class_category(class_label='Horizontal', number_of_features=2*num_of_features, names_of_classes=cat_horizontal,device=device)
-cat_vertical = ['Front', 'Behind']
-Category_Vertical = ltnw.class_category(class_label='Vertical', number_of_features=2*num_of_features, names_of_classes=cat_vertical,device=device)
-
-
 # Object Features
-for i, feat in enumerate(obj_colors):
-    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Color)
-for i, feat in enumerate(obj_sizes):
-    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Size)
-for i, feat in enumerate(obj_shapes):
-    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Shape)
-for i, feat in enumerate(obj_materials):
-    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Material) 
+for feat in obj_feat:
+    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, device=device)
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -90,11 +69,10 @@ start_time = time.time()
 print('******* Predicates for Spacial Relations ******')
 
 # Spacial Relations
-ltnw.mlp_predicate(label='Right', class_category= Category_Horizontal)
-ltnw.mlp_predicate(label='Left', class_category= Category_Horizontal)
-ltnw.mlp_predicate(label='Front', class_category= Category_Vertical)
-ltnw.mlp_predicate(label='Behind', class_category= Category_Vertical)
-
+ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, device=device) # Right(?o1,?o2) : o2 is on the right of o1
+ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, device=device) # Behind(?o1,?o2) : o2 is behind o1
+ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, device=device) # Front(?o1,?o2) : o2 is in front of o1
+ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, device=device) # Left(?o1,?o2) : o2 is on the left of o1
 
 ####################
 ### Load the LTN ###
@@ -122,48 +100,47 @@ print('******* Create test axiom dictionary ******')
 
 axioms = {}
 
-
 for i, feat in enumerate(obj_feat):
     axioms['forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')'] = []
     axioms['forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')'] = []
 
 # Implicit axioms about object features
-# ## objects can only be one color
-# for c in obj_colors:
-#     is_color = ''
-#     is_not_color = ''
-#     for not_c in obj_colors:
-#         if not_c == c: is_color = c.capitalize() + '(?obj)'
-#         if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
-#     axioms['forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1]] = []
-#     axioms['forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color] = []
-# ## objects can only be one size
-# for s in obj_sizes:
-#     is_size = ''
-#     is_not_size = ''
-#     for not_s in obj_sizes:
-#         if not_s == s: is_size = s.capitalize() + '(?obj)'
-#         if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
-#     axioms['forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1]] = []
-#     axioms['forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size] = []
-# ## objects can only be one shape
-# for sh in obj_shapes:
-#     is_shape = ''
-#     is_not_shape = ''
-#     for not_sh in obj_shapes:
-#         if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
-#         if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
-#     axioms['forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1]] = []
-#     axioms['forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape] = []
-# ## objects can only be one material
-# for m in obj_materials:
-#     is_material = ''
-#     is_not_material = ''
-#     for not_m in obj_materials:
-#         if not_m == m: is_material = m.capitalize() + '(?obj)'
-#         if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
-#     axioms['forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1]] = []
-#     axioms['forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material] = []
+## objects can only be one color
+for c in obj_colors:
+    is_color = ''
+    is_not_color = ''
+    for not_c in obj_colors:
+        if not_c == c: is_color = c.capitalize() + '(?obj)'
+        if not_c != c: is_not_color += '~' + not_c.capitalize() + '(?obj) &'
+    axioms['forall ?obj: ' + is_color + ' -> ' + is_not_color[:-1]] = []
+    axioms['forall ?obj: ' + is_not_color[:-1] + ' -> ' + is_color] = []
+## objects can only be one size
+for s in obj_sizes:
+    is_size = ''
+    is_not_size = ''
+    for not_s in obj_sizes:
+        if not_s == s: is_size = s.capitalize() + '(?obj)'
+        if not_s != s: is_not_size += '~' + not_s.capitalize() + '(?obj) &'
+    axioms['forall ?obj: ' + is_size + ' -> ' + is_not_size[:-1]] = []
+    axioms['forall ?obj: ' + is_not_size[:-1] + ' -> ' + is_size] = []
+## objects can only be one shape
+for sh in obj_shapes:
+    is_shape = ''
+    is_not_shape = ''
+    for not_sh in obj_shapes:
+        if not_sh == sh: is_shape = sh.capitalize() + '(?obj)'
+        if not_sh != sh: is_not_shape += '~' + not_sh.capitalize() + '(?obj) &'
+    axioms['forall ?obj: ' + is_shape + ' -> ' + is_not_shape[:-1]] = []
+    axioms['forall ?obj: ' + is_not_shape[:-1] + ' -> ' + is_shape] = []
+## objects can only be one material
+for m in obj_materials:
+    is_material = ''
+    is_not_material = ''
+    for not_m in obj_materials:
+        if not_m == m: is_material = m.capitalize() + '(?obj)'
+        if not_m != m: is_not_material += '~' + not_m.capitalize() + '(?obj) &'
+    axioms['forall ?obj: ' + is_material + ' -> ' + is_not_material[:-1]] = []
+    axioms['forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material] = []
 
 axioms['forall ?right_pair : Right(?right_pair)'] = []
 axioms['forall ?left_pair : ~Right(?left_pair)'] = []
@@ -177,30 +154,30 @@ axioms['forall ?behind_pair : ~Front(?behind_pair)'] = []
 axioms['forall ?left_pair : Left(?left_pair)'] = []
 axioms['forall ?right_pair : ~Left(?right_pair)'] = []
 
-# ## Implicit Axioms about spacial relations
-# axioms['forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)'] = []
-# axioms['forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj: ~Right(?obj, ?obj)'] = []
+## Implicit Axioms about spacial relations
+axioms['forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)'] = []
+#axioms['forall ?obj: ~Right(?obj, ?obj)'] = []
 
-# axioms['forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)'] = []
-# axioms['forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj: ~Behind(?obj, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)'] = []
+#axioms['forall ?obj: ~Behind(?obj, ?obj)'] = []
 
-# axioms['forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)'] = []
-# axioms['forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj: ~Front(?obj, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)'] = []
+#axioms['forall ?obj: ~Front(?obj, ?obj)'] = []
 
-# axioms['forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)'] = []
-# axioms['forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)'] = []
-# #axioms['forall ?obj: ~Left(?obj, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)'] = []
+axioms['forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)'] = []
+#axioms['forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)'] = []
+#axioms['forall ?obj: ~Left(?obj, ?obj)'] = []
 
 ## Check for negations (these should be =0)
 # for i, feat in enumerate(obj_feat):
@@ -300,15 +277,15 @@ for scenes_subset in split_scenes:
     #    ltnw.constant('object'+str(i),full_obj_set[i])
 
     # 'verbose' argument is used to bypass the variable redeclare warning message
-    ltnw.variable('?obj',torch.stack(full_obj_set).to(device), verbose=False)
-    ltnw.variable('?obj_2',torch.stack(full_obj_set).to(device), verbose=False)
+    ltnw.variable('?obj',torch.stack(full_obj_set), verbose=False)
+    ltnw.variable('?obj_2',torch.stack(full_obj_set), verbose=False)
     for i, feat in enumerate(obj_feat):
-        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]).to(device), verbose=False)
-        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]).to(device), verbose=False)
-    ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]).to(device), verbose=False)
-    ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]).to(device), verbose=False)
-    ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]).to(device), verbose=False)
-    ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]).to(device), verbose=False)
+        ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]), verbose=False)
+        ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]), verbose=False)
+    ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in right_pairs]), verbose=False)
+    ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in left_pairs]), verbose=False)
+    ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in front_pairs]), verbose=False)
+    ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in behind_pairs]), verbose=False)
 
     ## Test the axioms on the freshly declared variables
     with torch.no_grad():

@@ -47,7 +47,7 @@ def get_vector(scene, idx, mode='val'):
             features : vector with feature maps of object and whole scene concatenated
     """
 
-    image_name = 'images/' + scene['split'] + '/' + scene['image_filename']
+    image_name = '../images/' + scene['split'] + '/' + scene['image_filename']
     #obj = scene['objects'][idx]
     obj_mask = scene['objects_detection'][idx]['mask']
     obj_bbox = mask.toBbox(obj_mask)

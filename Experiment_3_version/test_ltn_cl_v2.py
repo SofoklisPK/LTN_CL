@@ -24,7 +24,7 @@ ltnw.set_layers(3) # TODO: fix loading layer number before trained weights
 ##################################
 start_time = time.time()
 
-with open('scenes_val.json') as f:
+with open('../scenes_val.json') as f:
     scenes_json = json.load(f)
     scenes_json = scenes_json['scenes']
     f.close()
