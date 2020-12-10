@@ -15,15 +15,15 @@ import math
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-total_images = 30
-scene_group_size = 1
-max_epochs = 2000    
-learning_rate = 2e-5
+total_images = 200
+scene_group_size = 10
+max_epochs = 5000
+learning_rate = 1e-5
 
 ltnw.set_universal_aggreg("pmeaner") # 'hmean', 'mean', 'min', 'pmeaner'
 ltnw.set_existential_aggregator("pmean") # 'max', 'pmean'
 ltnw.set_tnorm("new") # 'min','luk','prod','mean','new'
-ltnw.set_layers(10)
+#ltnw.set_layers(3)
 #ltnw.set_p_value(0.5)
 p_factor = 2 # p_value = p_factor*(sat_value**2)
 
@@ -57,22 +57,52 @@ obj_materials = ['rubber','metal']
 obj_feat = obj_colors + obj_sizes + obj_shapes + obj_materials
 obj_directions = ['right','left','front','behind']
 
+# define class categories of attributes (MLP structure)
+cat_colors = ['Gray', 'Blue', 'Brown', 'Yellow', 'Red', 'Green', 'Purple', 'Cyan']
+Category_Color = ltnw.class_category(class_label='Color', number_of_features=num_of_features, names_of_classes=cat_colors,device=device)
+cat_sizes = ['Small', 'Large']
+Category_Size = ltnw.class_category(class_label='Size', number_of_features=num_of_features, names_of_classes=cat_sizes,device=device)
+cat_shapes = ['Cube', 'Sphere', 'Cylinder']
+Category_Shape = ltnw.class_category(class_label='Shape', number_of_features=num_of_features, names_of_classes=cat_shapes,device=device)
+cat_materials = ['Rubber', 'Metal']
+Category_Material = ltnw.class_category(class_label='Material', number_of_features=num_of_features, names_of_classes=cat_materials,device=device)
+cat_horizontal = ['Right', 'Left']
+Category_Horizontal = ltnw.class_category(class_label='Horizontal', number_of_features=2*num_of_features, names_of_classes=cat_horizontal,device=device)
+cat_vertical = ['Front', 'Behind']
+Category_Vertical = ltnw.class_category(class_label='Vertical', number_of_features=2*num_of_features, names_of_classes=cat_vertical,device=device)
+
 # Object Variables Placeholders
 ltnw.variable('?obj',torch.zeros(1,num_of_features))
 ltnw.variable('?obj_2',torch.zeros(1,num_of_features))
-for i, feat in enumerate(obj_feat):
-    ltnw.predicate(label=feat.capitalize(), number_of_features_or_vars=num_of_features, device=device)
-    ltnw.variable('?is_'+feat, torch.zeros(1,num_of_features))
+for i, feat in enumerate(obj_colors):
+    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Color)
+    ltnw.variable('?is_'+feat, torch.zeros(1,num_of_features,device=device))
     ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
-    ltnw.variable('?isnot_'+feat, torch.zeros(1,num_of_features))
+    ltnw.variable('?isnot_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')
+for i, feat in enumerate(obj_sizes):
+    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Size)
+    ltnw.variable('?is_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+    ltnw.variable('?isnot_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')
+for i, feat in enumerate(obj_shapes):
+    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Shape)
+    ltnw.variable('?is_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+    ltnw.variable('?isnot_'+feat, torch.zeros(1,num_of_features,device=device))
     ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')   
-ltnw.variable('?right_pair', torch.zeros(1,2*num_of_features))
-ltnw.variable('?left_pair', torch.zeros(1,2*num_of_features))
-ltnw.variable('?front_pair', torch.zeros(1,2*num_of_features))
-ltnw.variable('?behind_pair', torch.zeros(1,2*num_of_features))
+for i, feat in enumerate(obj_materials):
+    ltnw.mlp_predicate(label=feat.capitalize(), class_category=Category_Material)
+    ltnw.variable('?is_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?is_'+ feat + ' : ' + feat.capitalize() + '(?is_'+ feat + ')')
+    ltnw.variable('?isnot_'+feat, torch.zeros(1,num_of_features,device=device))
+    ltnw.axiom('forall ?isnot_'+ feat + ' : ~' + feat.capitalize() + '(?isnot_'+ feat + ')')   
 
-# # Implicit axioms about object features
-# ## objects can only be one color
+
+
+# Implicit axioms about object features
+## objects can only be one color
 # for c in obj_colors:
 #     is_color = ''
 #     is_not_color = ''
@@ -110,10 +140,15 @@ ltnw.variable('?behind_pair', torch.zeros(1,2*num_of_features))
 #     #ltnw.axiom('forall ?obj: ' + is_not_material[:-1] + ' -> ' + is_material)
 
 # Spacial Relations
-ltnw.predicate(label='Right', number_of_features_or_vars=2*num_of_features, device=device) # Right(?o1,?o2) : o2 is on the right of o1
-ltnw.predicate(label='Behind', number_of_features_or_vars=2*num_of_features, device=device) # Behind(?o1,?o2) : o2 is behind o1
-ltnw.predicate(label='Front', number_of_features_or_vars=2*num_of_features, device=device) # Front(?o1,?o2) : o2 is in front of o1
-ltnw.predicate(label='Left', number_of_features_or_vars=2*num_of_features, device=device) # Left(?o1,?o2) : o2 is on the left of o1
+ltnw.variable('?right_pair', torch.zeros(1,2*num_of_features,device=device))
+ltnw.variable('?left_pair', torch.zeros(1,2*num_of_features,device=device))
+ltnw.variable('?front_pair', torch.zeros(1,2*num_of_features,device=device))
+ltnw.variable('?behind_pair', torch.zeros(1,2*num_of_features,device=device))
+
+ltnw.mlp_predicate(label='Right', class_category= Category_Horizontal)
+ltnw.mlp_predicate(label='Left', class_category= Category_Horizontal)
+ltnw.mlp_predicate(label='Front', class_category= Category_Vertical)
+ltnw.mlp_predicate(label='Behind', class_category= Category_Vertical)
 
 ltnw.axiom('forall ?right_pair : Right(?right_pair)')
 ltnw.axiom('forall ?left_pair : ~Right(?left_pair)')
@@ -128,29 +163,29 @@ ltnw.axiom('forall ?left_pair : Left(?left_pair)')
 ltnw.axiom('forall ?right_pair : ~Left(?right_pair)')
 
 # # Implicit Axioms about spacial relations
-#ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Left(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Right(?obj, ?obj_2) -> ~Right(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj, ?obj_2) -> Right(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj_2, ?obj) -> Right(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj: ~Right(?obj, ?obj)')
 
-#ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Right(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Left(?obj, ?obj_2) -> ~Left(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Right(?obj, ?obj_2) -> Left(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Left(?obj_2, ?obj) -> Left(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj: ~Behind(?obj, ?obj)')
 
-#ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Behind(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Front(?obj, ?obj_2) -> ~Front(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj, ?obj_2) -> Front(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj_2, ?obj) -> Front(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj: ~Front(?obj, ?obj)')
 
-#ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
-#ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Front(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: Behind(?obj, ?obj_2) -> ~Behind(?obj_2, ?obj)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Front(?obj, ?obj_2) -> Behind(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj, ?obj_2: ~Behind(?obj_2, ?obj) -> Behind(?obj, ?obj_2)')
+# ltnw.axiom('forall ?obj: ~Left(?obj, ?obj)')
 
 time_diff = time.time()-start_time
 print('Time to complete : ', time_diff)
@@ -167,6 +202,7 @@ f = open('axioms_values.csv', 'w')
 dictw = csv.DictWriter(f, ltnw.AXIOMS.keys())
 dictw.writeheader()
 
+
 ## Training Loop
 for ep in range(max_epochs):
 
@@ -174,17 +210,17 @@ for ep in range(max_epochs):
     for b in range(len(clevr_dataset)):
         full_obj_set, obj_attr, not_obj_attr, pairs = clevr_dataset.__getitem__(b)
 
-        ltnw.variable('?obj',torch.stack(full_obj_set), verbose=False)
-        ltnw.variable('?obj_2',torch.stack(full_obj_set), verbose=False)
+        ltnw.variable('?obj',torch.stack(full_obj_set).to(device), verbose=False)
+        ltnw.variable('?obj_2',torch.stack(full_obj_set).to(device), verbose=False)
         for i, feat in enumerate(obj_feat):
             if len(obj_attr[feat]) > 0: 
-                ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]), verbose=False)
+                ltnw.variable('?is_'+feat, torch.stack(obj_attr[feat]).to(device), verbose=False)
             if len(not_obj_attr[feat]) > 0: 
-                ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]), verbose=False)  
-        ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['right']]), verbose=False)
-        ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['left']]), verbose=False)
-        ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['front']]), verbose=False)
-        ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['behind']]), verbose=False)
+                ltnw.variable('?isnot_'+feat, torch.stack(not_obj_attr[feat]).to(device), verbose=False)  
+        ltnw.variable('?right_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['right']]).to(device), verbose=False)
+        ltnw.variable('?left_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['left']]).to(device), verbose=False)
+        ltnw.variable('?front_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['front']]).to(device), verbose=False)
+        ltnw.variable('?behind_pair', torch.stack([torch.cat([full_obj_set[p[0]],full_obj_set[p[1]]]) for p in pairs['behind']]).to(device), verbose=False)
 
         if ep+b == 0: # Initialise LTN at very beginning of training
             print('******* Initialising LTN ******')

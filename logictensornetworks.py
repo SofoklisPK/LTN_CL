@@ -267,7 +267,7 @@ def Exists(vars,wff):
 
 def variable(label, number_of_features_or_feed):
     if isinstance(number_of_features_or_feed, torch.Tensor):
-        result = number_of_features_or_feed.detach()
+        result = number_of_features_or_feed.clone()
     else:
         result = torch.tensor(number_of_features_or_feed)
     result.doms = [label]
@@ -325,6 +325,70 @@ class Function(nn.Module):
             self.W = torch.nn.Parameter(torch.rand([self.number_of_features + 1, self.output_shape_spec])*2-1)
             self.pars = [self.W]
 
+
+
+
+
+# Predicate Category MUST be created and defined before using predicate in category
+class Predicate_Category(nn.Module):
+    def __init__(self, class_label, number_of_features, names_of_classes, device=torch.device('cpu')):
+        super(Predicate_Category,self).__init__()
+        self.class_label = class_label
+        self.number_of_features = number_of_features
+        self.names_of_classes = names_of_classes #name of class should be same as label of predicate
+        self.class_index = {}
+        self.device = device
+        self.fc1 = torch.nn.Linear(self.number_of_features, 1024).to(self.device)
+        # torch.nn.init.uniform_(self.fc1.weight,a=-1,b=1)
+        self.fc2 = torch.nn.Linear(1024,1024).to(device)
+        self.fc3 = torch.nn.Linear(1024, len(self.names_of_classes)).to(self.device)
+        # torch.nn.init.uniform_(self.fc3.weight,a=-1,b=1)
+        cnt = 0
+        for class_name in names_of_classes:
+            self.class_index[class_name] = cnt
+            cnt += 1
+
+    def forward(self, x):
+        x.to(self.device)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.softmax(self.fc3(x),dim=1)
+        return x.squeeze()
+
+class MLP_Predicate(nn.Module):
+    def __init__(self, label, class_category):
+        super(MLP_Predicate, self).__init__()
+        self.label = label
+        self.class_category = class_category
+
+    def forward(self, *args):
+        crossed_args, list_of_args_in_crossed_args = cross_args(args)
+        output = self.class_category(*list_of_args_in_crossed_args)
+        if len(output.shape) > 1 :
+            result = [o[self.class_category.class_index[self.label]] for o in output]
+        else :
+            result = [output[self.class_category.class_index[self.label]]]
+        result = torch.stack(result)
+            
+        if crossed_args.doms != []:
+            result = torch.reshape(result, list(list(crossed_args.size())[:-1]) + [1])
+        else:
+            result = torch.reshape(result, (1,))
+        # result = torch.stack(result)
+        # if len(result.shape) == 0 : 
+        #     result = torch.tensor([result])
+        result.doms = crossed_args.doms
+        return result
+
+    def reset_parameters(self):
+        self.class_category.fc1 = torch.nn.Linear(self.class_category.number_of_features, 1024).to(self.class_category.device)
+        # torch.nn.init.uniform_(self.class_category.fc1.weight,a=-1,b=1)
+        self.class_category.fc2 = torch.nn.Linear(1024, 1024).to(self.class_category.device)
+        self.class_category.fc3 = torch.nn.Linear(1024, len(self.class_category.names_of_classes)).to(self.class_category.device)
+        # torch.nn.init.uniform_(self.class_category.fc3.weight,a=-1,b=1)
+
+
+        
 
 class Predicate(nn.Module):
     def __init__(self, label, number_of_features_or_vars, pred_definition=None, device=torch.device('cpu')):
